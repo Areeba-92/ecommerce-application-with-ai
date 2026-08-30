@@ -37,6 +37,10 @@ yarn-error.log*
 # scratch/temp working files (never committed)
 .scratch/
 
+# raw hero video source (kept on disk per user request, not committed —
+# public/videos/hero.mp4 is the transcoded asset actually served)
+herosection .mp4
+
 # vercel
 .vercel
 
