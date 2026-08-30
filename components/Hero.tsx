@@ -15,9 +15,9 @@ const SLIDESHOW_IMAGES = [
 // Video hero is a server component: if a transcoded hero video (see
 // scripts/import-listings.mjs README + top-level project brief) exists at
 // public/videos/hero.mp4, play it; otherwise fall back to the client-side
-// Unsplash crossfade slideshow. No video has been supplied for this build,
-// so the slideshow branch is what actually renders — the video branch stays
-// here so dropping a transcoded file in later activates it with no code change.
+// Unsplash crossfade slideshow. A hero video is in place (transcoded to H.264,
+// audio stripped, faststart) so the video branch is what renders — the
+// slideshow branch stays as a fallback for any future build without one.
 export default function Hero() {
   const hasVideo = fs.existsSync(HERO_VIDEO_PATH);
   const hasPoster = fs.existsSync(HERO_POSTER_PATH);
