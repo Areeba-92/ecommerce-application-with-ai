@@ -1,4 +1,12 @@
-# VELOUR — Progress Notes
+# HAVEN — Progress Notes
+
+> **Renamed 2026-08-29: VELOUR → HAVEN.** Branding-only rename (UI text, page
+> metadata, README/CLAUDE.md, `package.json` name). Historical entries below
+> still say "VELOUR" where they're describing what was literally true at the
+> time (test account emails, PayPal test handles, the InsForge project's own
+> name, past screenshots) — left as-is on purpose, not rewritten. The
+> InsForge project itself is still literally named `velour` (infra, out of
+> scope for this rename; see CLAUDE.md).
 
 Read this first when picking the project back up. It covers what exists, what
 was just built, what's known-broken/untested, and what to do next.

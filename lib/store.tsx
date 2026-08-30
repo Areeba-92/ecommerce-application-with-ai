@@ -30,7 +30,7 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
-const STORAGE_KEY = "velour-cart";
+const STORAGE_KEY = "haven-cart";
 
 interface CartRow {
   product_id: string;

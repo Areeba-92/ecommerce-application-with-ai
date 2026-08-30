@@ -6,9 +6,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "VELOUR — Premium Fashion",
+  title: "HAVEN — Premium Fashion",
   description:
-    "VELOUR — premium minimal men's & women's apparel. Considered pieces, quiet luxury.",
+    "HAVEN — premium minimal men's & women's apparel. Considered pieces, quiet luxury.",
 };
 
 export default function RootLayout({

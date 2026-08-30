@@ -134,7 +134,7 @@ export default async function HomePage() {
 
       <section className="newsletter">
         <span className="eyebrow">Stay In Touch</span>
-        <h2 className="section__title">Join the VELOUR List</h2>
+        <h2 className="section__title">Join the HAVEN List</h2>
         <NewsletterForm />
       </section>
     </>

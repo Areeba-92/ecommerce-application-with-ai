@@ -95,7 +95,7 @@ export default function Navbar() {
             <MenuIcon />
           </button>
           <Link href="/" className="navbar__logo">
-            VELOUR
+            HAVEN
           </Link>
           <nav className="navbar__links">
             <Link href="/" className="navbar__link">

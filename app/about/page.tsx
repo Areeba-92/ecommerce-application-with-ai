@@ -3,9 +3,9 @@ export default function AboutPage() {
     <div className="container">
       <div className="static-page">
         <span className="eyebrow">Our Story</span>
-        <h1 className="section__title">About VELOUR</h1>
+        <h1 className="section__title">About HAVEN</h1>
         <p>
-          VELOUR was founded on a simple idea: considered clothing shouldn&apos;t
+          HAVEN was founded on a simple idea: considered clothing shouldn&apos;t
           be complicated. We design quiet, elevated essentials for men and
           women — pieces built to be worn often, not just once.
         </p>

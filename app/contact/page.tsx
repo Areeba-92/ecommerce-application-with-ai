@@ -9,7 +9,7 @@ export default function ContactPage() {
           We typically respond within one business day.
         </p>
         <h2>Email</h2>
-        <p>hello@velour.example</p>
+        <p>hello@haven.example</p>
         <h2>Shipping &amp; Returns</h2>
         <p>
           Free worldwide shipping on orders over $75. Returns are accepted

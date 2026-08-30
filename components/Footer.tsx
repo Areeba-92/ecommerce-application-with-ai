@@ -33,7 +33,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="container footer__grid">
         <div>
-          <div className="footer__brand">VELOUR</div>
+          <div className="footer__brand">HAVEN</div>
           <p className="footer__blurb">
             Premium, considered essentials for men &amp; women — quiet luxury
             for everyday wear.
@@ -62,7 +62,7 @@ export default function Footer() {
         ))}
       </div>
       <div className="footer__bottom">
-        &copy; {new Date().getFullYear()} VELOUR. All rights reserved.
+        &copy; {new Date().getFullYear()} HAVEN. All rights reserved.
       </div>
     </footer>
   );

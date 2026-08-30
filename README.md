@@ -1,4 +1,4 @@
-# VELOUR
+# HAVEN
 
 A premium fashion ecommerce storefront (men's & women's apparel) built with
 Next.js App Router and TypeScript, backed by a real database, auth, and

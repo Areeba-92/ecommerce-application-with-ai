@@ -5,7 +5,7 @@ export default function PrivacyPage() {
         <span className="eyebrow">Legal</span>
         <h1 className="section__title">Privacy Policy</h1>
         <p>
-          This is a placeholder privacy policy for the VELOUR demo storefront.
+          This is a placeholder privacy policy for the HAVEN demo storefront.
           No real customer data is collected, stored, or shared by this site.
         </p>
         <h2>Information We Collect</h2>
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
           experience.
         </p>
         <h2>Contact</h2>
-        <p>Questions about this policy can be sent to hello@velour.example.</p>
+        <p>Questions about this policy can be sent to hello@haven.example.</p>
       </div>
     </div>
   );

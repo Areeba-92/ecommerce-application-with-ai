@@ -12,9 +12,9 @@
   the project directory. If a command would touch anything outside it, stop and ask first.
 ## Project
 
-VELOUR — a premium fashion eCommerce site (men's & women's apparel, Zara/H&M-like
-positioning, more upscale feel). Next.js (App Router) + TypeScript + React. No Tailwind — styling
-is a single global stylesheet (`app/globals.css`) with CSS variables.
+HAVEN (renamed from VELOUR, 2026-08-29) — a premium fashion eCommerce site (men's & women's
+apparel, Zara/H&M-like positioning, more upscale feel). Next.js (App Router) + TypeScript + React.
+No Tailwind — styling is a single global stylesheet (`app/globals.css`) with CSS variables.
 
 ## Environment
 
@@ -60,10 +60,11 @@ incoming/ listings-template.csv, README.md, images/ (drop folder)
 
 ## Backend (InsForge)
 
-Real backend via [InsForge](https://insforge.dev) (project **velour**, linked in
-`.insforge/project.json`; CLI: `npx @insforge/cli`). App code uses `@insforge/sdk`
-through the single client in `lib/insforge.ts`; infrastructure (schema, RLS,
-buckets) is managed via the CLI, not app code.
+Real backend via [InsForge](https://insforge.dev) (project **velour** — the InsForge project's
+own name; unrelated to the app brand and left as-is, since renaming it is an infra change out of
+scope for the VELOUR → HAVEN branding rename — linked in `.insforge/project.json`; CLI: `npx
+@insforge/cli`). App code uses `@insforge/sdk` through the single client in `lib/insforge.ts`;
+infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
 
 - **Tables** (all RLS-enabled; see `migrations/`):
   - `products` — public read-only catalogue. Seeded from the modest-wear catalog
