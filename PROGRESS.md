@@ -7,15 +7,72 @@
 > the strings at the time (throwaway test-account emails, the PayPal test
 > handle, the verification-email sender name) literally used the old name.
 
-> **Site is LIVE as of 2026-09-23** at
-> https://ecommerce-application-with-ai.vercel.app — the owner re-activated it
-> on Vercel themselves, after it had been deliberately taken private on
-> 2026-08-30. The InsForge backend had auto-paused in the meantime and was
-> restored the same day (see the 2026-09-23 entry below). `VERCEL_PRIVACY.md`
-> covers taking it private again.
+> **Site is LIVE** at https://ecommerce-application-with-ai.vercel.app —
+> last deployed **2026-09-24** (deployment `b5u1t9yed`), and the deployed
+> frontend, the repo and the database are all in sync as of that deploy.
+> `VERCEL_PRIVACY.md` covers taking it private again.
+>
+> **Two things are knowingly unfinished — read these before doing anything
+> else:** product prices are placeholders, and 11 demo women's products are
+> still live. See "Where this stands" immediately below.
 
 Read this first when picking the project back up. It covers what exists, what
 was just built, what's known-broken/untested, and what to do next.
+
+## Where this stands — end of 2026-09-24
+
+Everything below this section is the detailed history. This is the summary to
+read first.
+
+### In sync
+
+Repo (`34b654c` on `main`), the InsForge database, and the deployed frontend
+all match. Verified on the live URL after deploying, not just assumed: `/men`
+serves 3 real products, `/home-living` serves 6 with zero broken images,
+section titles render Cormorant 400, the theme toggle is present, and under an
+OS dark preference the body is `rgb(16,13,11)` with **white** hero text and a
+raised (not inverted) footer.
+
+Dev server stopped, scratch files removed.
+
+### Open items, in the order they matter
+
+1. **Prices are placeholders on live, buyable products.** The supplied CSV had
+   every `price` field empty; values were invented by product type to sit inside
+   the existing range. Checkout enforces these server-side, so whatever is in
+   `products.price` is what a customer is charged. This is the one item that
+   should not sit indefinitely.
+2. **11 demo women's products are still live** — the originals that use stock
+   Unsplash imagery. They are the *entire* remaining source of duplicate images
+   on the site: five pairs share photos (e.g. `silk-shawl-hijab` and
+   `everyday-jersey-hijab` share both of theirs). The equivalent men's demo
+   products were deleted on request; the women's were left because removing them
+   drops women from 18 products to 7 — a call for the owner, not the agent.
+3. **7 catalogue variants were never imported** — HIJ-IVF/NVY/SGE/LIL and
+   MAT-NVY/MRN/GRY have no individual photograph, only a shared colour-range
+   group shot. Photograph them and they can be added in minutes.
+4. **Security hardening still open** (from `SECURITY_AUDIT.md`): no CSP or
+   security headers in `next.config.ts`, and the password policy is
+   `min_length = 6` with no complexity rule. Neither is a live hole.
+5. `components/temporary mistake.md` — a design-critique document sitting in
+   `components/`, untracked. Move it out of the source tree or delete it; its
+   actionable points are already captured in this file.
+
+### Worth knowing before the next session
+
+- **The backend auto-pauses on the free tier.** Pages still return 200 but
+  render an empty catalogue, which looks exactly like a broken frontend. Check
+  `npx @insforge/cli projects get` first.
+- **`db query` runs as `project_admin`**, which the order-pricing trigger
+  exempts — attack tests run that way pass straight through and prove nothing.
+- **Playwright `fullPage` screenshots paint `position: fixed` and opacity-hidden
+  elements** that are genuinely not rendered. Two "bugs" this session were
+  capture artefacts; one apparent artefact turned out to be a real bug. Confirm
+  with `element.checkVisibility()` or computed style before concluding either
+  way.
+- **Check brace balance after any scripted edit to `app/globals.css`.** An
+  unclosed `@media` nests the remainder of the file inside it — the site then
+  looks perfect at desktop width and completely unstyled below the breakpoint.
 
 ## Image de-duplication, single-image products, font weights (2026-09-24)
 
