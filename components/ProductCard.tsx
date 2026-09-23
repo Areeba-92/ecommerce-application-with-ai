@@ -9,24 +9,37 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const badge = product.isNew ? "New" : product.compareAtPrice ? "Sale" : null;
+  // A product can be both new and discounted, so the badge kind has to be
+  // decided here — a CSS :has() rule keyed off .compare would paint a "New"
+  // badge in sale red.
+  const badge = product.isNew
+    ? { label: "New", kind: "new" as const }
+    : product.compareAtPrice
+    ? { label: "Sale", kind: "sale" as const }
+    : null;
 
   return (
     <div className="product-card">
       <Link href={`/product/${product.id}`} className="product-card__media">
-        {badge && <span className="product-card__badge">{badge}</span>}
+        {badge && (
+          <span className={`product-card__badge product-card__badge--${badge.kind}`}>
+            {badge.label}
+          </span>
+        )}
         <ProductImage
           src={product.images[0]}
           alt={product.name}
           fill
           sizes="(max-width: 720px) 50vw, 25vw"
         />
-        <ProductImage
-          src={product.images[1]}
-          alt=""
-          fill
-          sizes="(max-width: 720px) 50vw, 25vw"
-        />
+        {product.images[1] && (
+          <ProductImage
+            src={product.images[1]}
+            alt=""
+            fill
+            sizes="(max-width: 720px) 50vw, 25vw"
+          />
+        )}
         <div className="product-card__quick-add">
           <QuickAddButton product={product} />
         </div>

@@ -9,12 +9,12 @@
  * change when this file went from mock to real backend.
  */
 import { insforge } from "./insforge";
-import { CATEGORIES, type Product } from "./data";
+import { CATEGORIES, type Category, type Product } from "./data";
 
 export type SortOption = "featured" | "price-asc" | "price-desc" | "newest";
 
 export interface GetProductsParams {
-  category?: "women" | "men";
+  category?: Category;
   subcategory?: string;
   sort?: SortOption;
   query?: string;
@@ -24,13 +24,13 @@ export interface GetProductsParams {
 interface ProductRow {
   id: string;
   name: string;
-  category: "women" | "men";
+  category: Category;
   subcategory: string;
   price: number;
   compare_at_price: number | null;
   description: string;
   sizes: string[];
-  images: [string, string];
+  images: string[];
   featured: boolean;
   is_new: boolean;
   trending: boolean;
@@ -147,7 +147,7 @@ export async function getRelated(id: string, limit = 4): Promise<Product[]> {
   return [...sameSub, ...sameCategory].slice(0, limit);
 }
 
-export async function getSubcategories(category: "women" | "men"): Promise<string[]> {
+export async function getSubcategories(category: Category): Promise<string[]> {
   const items = await fetchAllProducts();
   const active = new Set(
     items.filter((p) => p.category === category).map((p) => p.subcategory)

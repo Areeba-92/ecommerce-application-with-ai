@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/store";
+import ThemeToggle from "@/components/ThemeToggle";
 import { getProducts } from "@/lib/api";
 import { getCurrentUserOnce, AUTH_CHANGED_EVENT } from "@/lib/insforge";
 import type { Product } from "@/lib/data";
@@ -107,8 +108,12 @@ export default function Navbar() {
             <Link href="/men" className="navbar__link">
               Men
             </Link>
+            <Link href="/home-living" className="navbar__link">
+              Home
+            </Link>
           </nav>
           <div className="navbar__actions">
+            <ThemeToggle />
             <button
               type="button"
               className="navbar__icon-btn"
@@ -146,7 +151,7 @@ export default function Navbar() {
         >
           <CloseIcon />
         </button>
-        <nav style={{ marginTop: "2rem" }}>
+        <nav>
           <Link href="/" className="drawer__link" onClick={closeAll}>
             Home
           </Link>
@@ -155,6 +160,9 @@ export default function Navbar() {
           </Link>
           <Link href="/men" className="drawer__link" onClick={closeAll}>
             Men
+          </Link>
+          <Link href="/home-living" className="drawer__link" onClick={closeAll}>
+            Home &amp; Worship
           </Link>
           <Link
             href={signedIn ? "/profile" : "/login"}

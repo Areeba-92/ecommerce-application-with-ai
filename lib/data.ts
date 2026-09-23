@@ -1,15 +1,20 @@
 import { GENERATED_PRODUCTS } from "./generated-products";
 
+export type Category = "women" | "men" | "home";
+
 export interface Product {
   id: string;
   name: string;
-  category: "women" | "men";
+  category: Category;
   subcategory: string;
   price: number;
   compareAtPrice?: number;
   description: string;
   sizes: string[];
-  images: [string, string];
+  // One or two images. Products photographed only once have a single
+  // entry — do NOT pad the array to two, that renders duplicate
+  // thumbnails in the gallery and a no-op hover crossfade.
+  images: string[];
   featured?: boolean;
   isNew?: boolean;
   trending?: boolean;
@@ -21,9 +26,10 @@ function unsplash(id: string, w = 900): string {
   return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
 }
 
-export const CATEGORIES: Record<"women" | "men", string[]> = {
-  women: ["Abayas", "Hijabs", "Jilbabs", "Modest Dresses", "Prayer Wear", "Accessories"],
-  men: ["Thobes/Kanduras", "Jubbahs", "Prayer Wear", "Bottoms", "Accessories"],
+export const CATEGORIES: Record<Category, string[]> = {
+  women: ["Abayas", "Hijabs", "Dupattas", "Jilbabs", "Modest Dresses", "Prayer Wear", "Accessories"],
+  men: ["Thobes/Kanduras", "Kameez Shalwar", "Jubbahs", "Prayer Wear", "Bottoms", "Accessories"],
+  home: ["Prayer Mats", "Wall Art"],
 };
 
 export const BASE_PRODUCTS: Product[] = [
@@ -341,7 +347,7 @@ export const BASE_PRODUCTS: Product[] = [
 // BASE_PRODUCTS, just disconnect it here.
 export const PRODUCTS: Product[] = [...BASE_PRODUCTS, ...GENERATED_PRODUCTS];
 
-export function subcategoriesFor(category: "women" | "men"): string[] {
+export function subcategoriesFor(category: Category): string[] {
   const active = new Set(
     PRODUCTS.filter((p) => p.category === category).map((p) => p.subcategory)
   );

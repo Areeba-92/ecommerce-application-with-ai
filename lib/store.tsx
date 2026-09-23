@@ -36,7 +36,7 @@ interface CartRow {
   product_id: string;
   size: string;
   quantity: number;
-  products: { name: string; images: [string, string]; price: number };
+  products: { name: string; images: string[]; price: number };
 }
 
 async function loadCartFromDb(userId: string): Promise<CartItem[]> {

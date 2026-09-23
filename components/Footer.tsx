@@ -7,6 +7,7 @@ const columns = [
     links: [
       { label: "Women", href: "/women" },
       { label: "Men", href: "/men" },
+      { label: "Home & Worship", href: "/home-living" },
       { label: "New Arrivals", href: "/women?sort=newest" },
       { label: "Best Sellers", href: "/men?sort=newest" },
     ],

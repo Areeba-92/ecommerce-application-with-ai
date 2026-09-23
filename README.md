@@ -1,8 +1,8 @@
 # HAVEN
 
-A premium fashion ecommerce storefront (men's & women's apparel) built with
-Next.js App Router and TypeScript, backed by a real database, auth, and
-PayPal-based checkout — not a demo.
+A premium modest-wear ecommerce storefront (women's, men's, and home &
+worship) built with Next.js App Router and TypeScript, backed by a real
+database, auth, and PayPal-based checkout — not a demo.
 
 **Live: [ecommerce-application-with-ai.vercel.app](https://ecommerce-application-with-ai.vercel.app)**
 
@@ -10,8 +10,12 @@ PayPal-based checkout — not a demo.
 
 - **Auth** — email/password signup and sign-in with email verification
   (6-digit code), backed by [InsForge](https://insforge.dev).
-- **Catalogue** — product listing, filtering, search, and detail pages read
-  from a live Postgres table, not static/in-memory data.
+- **Catalogue** — 27 products across three categories (`women`, `men`,
+  `home`) with real product photography. Listing, filtering, search and detail
+  pages read from a live Postgres table, not static/in-memory data.
+- **Dark mode** — a navbar toggle, defaulting to the OS preference and
+  persisting an explicit choice. Implemented purely by redefining colour
+  tokens; no component has a dark variant.
 - **Cart** — persists to `localStorage` for guests and syncs to the database
   for signed-in users (loads on login, write-through on every change).
 - **Orders & payment** — checkout creates a real order row, then hands off to
@@ -45,6 +49,7 @@ move to PayPal Orders API or Stripe for real server-side verification. See
 
 ```
 app/                    routes + layout.tsx + globals.css
+  women/ men/ home-living/  category listing pages
   checkout/              order placement
   payment/[orderId]/     PayPal handoff interstitial
   payment/return/        payment confirmation (flips order to paid)
@@ -53,7 +58,10 @@ components/             shared + page-level components (server by default)
 lib/api.ts              InsForge-backed data layer — the backend-swap seam
 lib/insforge.ts         single InsForge SDK client + auth-state helpers
 lib/store.tsx           cart context (localStorage + DB sync)
-lib/data.ts             legacy demo catalogue (kept, disconnected — see below)
+lib/data.ts             Category type, CATEGORIES, legacy demo catalogue
+                        (kept, disconnected — see below)
+lib/shipping.ts         free-shipping threshold + flat rate (mirrored in SQL)
+components/ThemeToggle.tsx  light/dark switch
 migrations/             SQL migrations (schema, RLS policies, triggers)
 scripts/import-listings.mjs  CSV → catalogue import pipeline (local/demo only)
 incoming/               listings-template.csv, README.md, images/ drop folder
@@ -89,6 +97,25 @@ catalogue pipeline from before the InsForge backend existed. It's still
 useful for quickly previewing new product photography/copy locally, but it
 targets `lib/generated-products.ts`, not the live `products` table — see
 `incoming/README.md` if you want to use it.
+
+## Product catalogue
+
+Live product data lives in the InsForge `products` table; images are served
+from the public `product-images` storage bucket. The current catalogue was
+imported from a supplied drop folder (`product image/`, gitignored — 72MB of
+PNG masters plus WebP renditions) via a one-off script: images uploaded to the
+bucket, rows inserted with `ON CONFLICT DO UPDATE`.
+
+Two caveats on that import:
+
+- **Prices are placeholders.** The source CSV shipped with every `price` field
+  empty. The current values were chosen by product type to sit inside the
+  existing range — they are not costed. Review before taking real orders.
+- **Products carry one or two images.** Single-photo products are stored with a
+  one-entry array rather than a padded duplicate.
+- **7 of 23 colour variants were skipped** because they have no individual
+  photograph, only a shared colour-range group shot. Listing a specific
+  colourway using a photo of six colours would misrepresent the product.
 
 ## Deploying
 

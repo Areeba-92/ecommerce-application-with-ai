@@ -17,6 +17,230 @@
 Read this first when picking the project back up. It covers what exists, what
 was just built, what's known-broken/untested, and what to do next.
 
+## Image de-duplication, single-image products, font weights (2026-09-24)
+
+### Products may now have ONE image
+
+`Product.images` was typed `[string, string]` — a two-tuple — so the catalogue
+import padded single-photo products by duplicating image 1 into slot 2. That
+rendered **two identical thumbnails** in the product gallery and a hover
+crossfade that visibly did nothing.
+
+- Type is now `string[]` in `lib/data.ts`, `lib/api.ts` and `lib/store.tsx`.
+- `ProductCard` renders the second image only when one exists.
+- `Gallery` already guarded on `images.length > 1`, so single-image products
+  correctly show no thumbnail strip.
+- Collapsed 6 rows from `[a, a]` to `[a]`.
+
+**Never pad the images array to two.** That is what created this.
+
+### Group photos removed as secondary images
+
+3 products (`cotton-crinkle-hijab-rose`, and the cream + rose prayer mats) used
+a colour-range group shot — six colourways in one frame — as their second
+image, and the mat group shot appeared on two different products, so it read as
+a duplicate across the site. Dropped; those are now single-image. Same
+reasoning as skipping the 7 variants that have only group photos.
+
+After this, **zero duplicate images remain among the real catalogue rows.**
+
+### Remaining duplication is all in the old demo seed
+
+10 images are still shared across products, every one of them in the 11
+leftover demo women's products (the seed reused the same Unsplash photos across
+pairs — e.g. `silk-shawl-hijab` and `everyday-jersey-hijab` share both of
+theirs). The men's demo products were deleted earlier; the women's have not
+been.
+
+### Hero legibility bug (introduced by dark mode, now fixed)
+
+`.hero` sets `color: var(--color-white)`, and the dark palette redefines
+`--color-white` to `#171310` as a *surface* role. So all text sitting ON
+photography — the hero headline and category tile labels — turned dark and
+became unreadable on light video frames.
+
+Fixed with `--color-on-media`, which deliberately does **not** flip with the
+theme. General lesson: a token named for a colour but used for two different
+roles can only follow one of them through a theme change.
+
+### Display font weights raised
+
+Kept Cormorant Garamond + Inter (owner's choice), but weight 300 was too frail:
+
+- Text over imagery (hero title, category labels): 300 → **500**
+- Headings on flat backgrounds (section titles, promo, product name, static
+  lede, empty state): 300 → **400**
+
+Re-added Cormorant 500 to the Google Fonts request; weight 300 is now loaded
+but unused and could be dropped. Note the first edit pass patched the *legacy*
+rule blocks rather than the later overriding ones, leaving three headings
+silently at 300 — caught by grepping for `font-weight: 300` rather than
+assuming the edit landed.
+
+### Gallery thumbnails never worked (pre-existing)
+
+`ProductImage` did `useState(props.src)`. `useState` reads its argument only on
+first mount, so when the gallery swapped `images[active]` on the already-mounted
+instance the main image stayed frozen on the first photo — the thumbnail
+highlighted, nothing else changed. The displayed src is now derived from props
+each render, remembering only which src *failed*. Placeholder fallback
+re-verified by blocking `/_next/image` entirely (blocking the storage URL proves
+nothing — next/image proxies, so the browser never requests storage directly).
+
+## Real catalogue import, Home category, dark mode (2026-09-24)
+
+### Catalogue
+
+Imported the supplied drop folder (`product image/` — 23 variant rows, WebP at
+three widths, now gitignored at 72MB since the images live in storage and the
+rows in the DB).
+
+- **16 of 23 variants imported**, one product per colourway. The other **7 were
+  deliberately skipped**: HIJ-IVF/NVY/SGE/LIL and MAT-NVY/MRN/GRY have no
+  individual photograph, only a shared colour-range group shot. Listing "Navy
+  Hijab" with a picture of six colours misrepresents the product, and the
+  folder's own README says to photograph or delete those rows.
+- **Prices are invented.** The source CSV had all 23 `price` fields empty. The
+  owner asked for "random but logical", so they were set by product type inside
+  the existing $22-$268 range (thobe 168, kameez shalwar 148, abaya 198, gown
+  228, dupatta 58, hijab 32, prayer mat 78, wall art 95-240). **These are live
+  and buyable with server-enforced pricing — review before taking real orders.**
+- 25 WebP images uploaded to the `product-images` bucket under a `catalog-`
+  key prefix, which is what distinguishes imported rows from the demo seed.
+
+### Home category
+
+Prayer mats and wall art are neither womenswear nor menswear, so
+`migrations/20260923185349_add-home-category.sql` widens the `products.category`
+CHECK to `('women','men','home')`. Added `/home-living` (route name avoids
+colliding with the site root), nav + drawer + footer links, and `CATEGORIES.home`.
+`lib/data.ts` now exports a `Category` union; `lib/api.ts` reads that type, so
+its exported signatures keep their shape.
+
+### Removed the demo men's products
+
+At the owner's request, the 9 placeholder men's products using stock Unsplash
+imagery were deleted, leaving only the 3 real catalogue items. Verified first
+that no cart rows referenced them. One historical order references
+`congregation-prayer-set`; orders store a full jsonb item snapshot and the
+profile page renders from that without linking to the product, so order history
+still displays correctly — but that product no longer exists.
+
+Catalogue is now women 18 / men 3 / home 6 = 27.
+
+### Dark mode
+
+A navbar toggle (`components/ThemeToggle.tsx`), defaulting to the OS preference
+and persisting an explicit choice to `localStorage`. **Only colour tokens are
+redefined** — every rule already reads through them, so no component needed a
+dark variant.
+
+Two things that would have broken naively:
+
+- `.footer` used `var(--color-text)` as background and `--color-bg` as text, so
+  flipping the theme would have inverted it to a light footer. Same for
+  `.promo-banner`. Now on dedicated `--color-band-*` tokens that stay dark in
+  both themes (and in dark sit *above* the page, not below it).
+- `--alpha-paper-72` (badges, quick-add) sits over photography and had to flip
+  too, and shadows needed more opacity to register on a dark ground.
+
+No inline `<head>` theme script: that needs `dangerouslySetInnerHTML`, which
+`SECURITY_AUDIT.md` credits this codebase for not having. The CSS media query
+covers the default, so only someone choosing a theme opposite to their OS sees
+one frame of flash.
+
+### Brand story + typography
+
+Added a `.brand-story` editorial band ("Made With Intention") before the
+shipping promo. Typography pass separated the three registers — display serif
+gets `font-feature-settings`/`optimizeLegibility` (Cormorant ships loose, which
+is much of why it read generic), long-form prose gets `--color-text-soft` and
+`--lh-prose` instead of sharing muted grey with captions, prices are tabular.
+
+### Two real bugs fixed
+
+1. **The product card's two-image crossfade never worked** — and this predates
+   the restyle. The media link's children are `[badge span, img, img, quick-add
+   div]`, so `img:last-child` matched nothing and `img:first-child` failed on
+   any badged product. Both images rendered at `opacity: 1` and the second
+   painted over the first, which is why colour-range group shots appeared
+   instead of the individual product. Now `:nth-of-type(1|2)`. This was live in
+   production on every badged product.
+2. **The promo band was catastrophically mis-laid-out** — `margin-inline: auto`
+   on children combined with `max-width: 16ch` on the title *centred* the narrow
+   block instead of left-aligning it, a `padding-left` calc pushed it further
+   right, and `--section-pad-lg` gave 10rem of padding top and bottom. Result:
+   a ~1000px-tall band, mostly empty, headline wrapping one word per line. A
+   design critique read this as "huge empty hero sections" and "excessive
+   whitespace" — it was a bug, not a design choice. Now uses
+   `padding-inline: max(...)` for container alignment.
+
+## Editorial luxury restyle (2026-09-23)
+
+Visual redesign at the user's request — the site worked but read as basic. Direction
+chosen: editorial luxury; depth: tokens + components, no page-markup restructuring;
+asymmetry achieved through CSS alone.
+
+### What changed
+
+- **Token layer rebuilt** (`app/globals.css`). Added the two families that simply did
+  not exist: an **elevation scale** (before this, the entire 1619-line stylesheet had
+  exactly one `box-shadow`, on `.toast`) and a **type scale** (~22 ad-hoc rem literals
+  and 4 near-duplicate heading `clamp()`s collapsed into 6 sans steps + 5 display
+  steps). Palette extended from 2 surfaces to 4, plus `--color-sale` so markdowns stop
+  sharing a colour with errors.
+- **Micro-label motif consolidated** — was 5 sizes x 7 letter-spacings for what is
+  conceptually one style; now one `--label-*` token set.
+- **Product card** (renders on 5 pages, the highest-leverage change). Was containerless
+  with name and price both plain Inter 0.05rem apart. Now a serif name against a
+  tabular price, a hover "plate" that lifts the card without any layout cost, and
+  **`--new` / `--sale` badges that finally differ** — they rendered identically before.
+- **CSS-only asymmetry** — media aspect ratio and vertical offset vary by grid position
+  via `nth-child`, giving a ragged magazine edge with zero markup change. Offsets use
+  `margin-top`, never `transform`, because `ScrollReveal` owns `transform` on the same
+  element.
+- **`--grid-cols`** drives every product grid (2/3/4 at 720/1180). The 1180 step is the
+  previously missing 13-inch-laptop breakpoint — cards used to stretch unbroken from
+  1024px to the 1400px container cap.
+- **Accessibility, previously absent**: a global `:focus-visible` ring (form focus was a
+  1px border-colour shift; buttons and links got nothing) and a `prefers-reduced-motion`
+  block.
+- **Static pages** went from 3 CSS rules carrying 3 whole pages to a real editorial
+  treatment (masthead, serif lede, hairline dividers, readable measure).
+- Hero moved bottom-left at >=820px; category tiles became an asymmetric diptych; the
+  first promo band is now a full-bleed dark break.
+- Inline styles reduced ~30 -> 15, including two that were components in disguise
+  (`PaymentBadge` -> `.pill`, the light promo variant -> `.promo-banner--plain`). The
+  dead `spin` keyframe now powers a real `.loader`, replacing four blank loading divs.
+- Fonts: added Cormorant 300 (editorial lightness at display sizes), dropped the
+  now-unused 500. Fixed a live faux-bold — `.navbar__badge` asked for weight 700 from a
+  font that only loads 400/500/600.
+
+### Three real bugs found during verification
+
+1. **An unclosed `@media` brace silently nested the whole stylesheet inside
+   `min-width: 1180px`.** Caused by a scripted edit whose `index(".section__head {")`
+   matched inside the `.section--offset .section__head {` it had just inserted. The site
+   looked perfect at 1440 and was completely unstyled below 1180. Parsed rule count
+   went 42 -> 326 once fixed. **Check brace balance after any scripted CSS edit.**
+2. **Horizontal overflow at 375px** — the hero `<video>` sat at its intrinsic 1920px
+   because the `.hero__media` rules were inside that broken media query. Fixed with #1.
+3. **`prefers-reduced-motion` left `.reveal` stuck at `opacity: 0`** — content invisible
+   rather than merely un-animated. The override sat earlier in the file than the base
+   `.reveal` rule and lost on equal specificity; reduced-motion overrides now live last.
+
+### Screenshot caveat worth knowing
+
+Playwright `fullPage` captures paint `position: fixed` and opacity-hidden elements that
+are genuinely not rendered — the search overlay, drawer and hover-only Quick Add all
+appeared in captures while `element.checkVisibility()` returned `false` and hit-testing
+at their coordinates returned the image beneath. Don't debug from a full-page screenshot
+alone; confirm with `checkVisibility()` or computed style.
+
+Verified: `npm run build` clean; no horizontal overflow at 375px on any page; 2-up mobile
+grid; focus ring present on keyboard tab; reduced motion leaves content visible; Quick
+Add reachable under `@media (hover: none)`.
+
 ## Server-side order pricing — the CRITICAL audit finding is fixed (2026-09-23)
 
 The open CRITICAL finding from `SECURITY_AUDIT.md` is closed, plus a second hole

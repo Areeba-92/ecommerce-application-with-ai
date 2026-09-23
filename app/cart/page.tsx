@@ -18,7 +18,6 @@ export default function CartPage() {
           <Link
             href="/women"
             className="btn btn--primary"
-            style={{ marginTop: "1.5rem", display: "inline-flex" }}
           >
             Continue Shopping
           </Link>
@@ -79,7 +78,6 @@ export default function CartPage() {
           <Link
             href="/checkout"
             className="btn btn--primary btn--full"
-            style={{ marginTop: "1.5rem", display: "inline-flex" }}
           >
             Proceed to Checkout
           </Link>

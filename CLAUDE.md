@@ -12,8 +12,8 @@
   the project directory. If a command would touch anything outside it, stop and ask first.
 ## Project
 
-HAVEN — a premium fashion eCommerce site (men's & women's apparel, Zara/H&M-like positioning,
-more upscale feel). Next.js (App Router) + TypeScript + React.
+HAVEN — a premium modest-wear eCommerce site (women's, men's, and home & worship;
+Zara/H&M-like positioning, more upscale feel). Next.js (App Router) + TypeScript + React.
 No Tailwind — styling is a single global stylesheet (`app/globals.css`) with CSS variables.
 
 **Site status:** LIVE and public at https://ecommerce-application-with-ai.vercel.app — the owner
@@ -61,6 +61,8 @@ getNewArrivals, getTrending, getRelated, getSubcategories
 lib/store.tsx cart context — localStorage for guests, synced to the `carts`
 table (write-through) for signed-in users
 lib/format.ts money() helper
+lib/data.ts also exports the `Category` union ("women" | "men" | "home") — widen
+that type, not the individual signatures, when adding a category
 lib/shipping.ts free-shipping threshold + flat rate, shared by cart and checkout.
 Mirrored in the orders_enforce_integrity trigger — the SQL copy is what is
 actually charged, so change both together.
@@ -90,8 +92,13 @@ single client in `lib/insforge.ts`;
 infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
 
 - **Tables** (all RLS-enabled; see `migrations/`):
-  - `products` — public read-only catalogue. Seeded from the modest-wear catalog
-    (see `lib/data.ts` BASE_PRODUCTS for the source content used at seed time).
+  - `products` — public read-only catalogue. **27 rows across three categories**
+    (`women` 18, `men` 3, `home` 6); `category` CHECK admits `women|men|home`.
+    Most rows were imported 2026-09-24 from a supplied drop folder
+    (`product image/`, gitignored) — images in the `product-images` bucket under
+    a `catalog-` key prefix, which is how imported rows can be told from the
+    original demo seed. **Prices on imported rows are placeholders** (the source
+    CSV had every price empty) — do not treat them as costed.
     Columns are snake_case (`compare_at_price`, `is_new`); `lib/api.ts` maps rows
     to the camelCase `Product` shape.
   - `carts` — one row per (user_id, product_id, size); RLS restricts all access to
@@ -140,10 +147,46 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
   listen for `lib/insforge.ts`'s `AUTH_CHANGED_EVENT` (dispatched by
   `notifyAuthChanged()` after sign-in/out) to re-check.
 
+## Product images
+
+- `Product.images` is `string[]`, **one or two entries**. A product photographed
+  once has a single entry — **never pad the array to two**: that renders
+  duplicate gallery thumbnails and a no-op hover crossfade. `ProductCard` renders
+  image 2 conditionally; `Gallery` hides the thumb strip below 2 images.
+- Never use a colour-range / group photo as a product image. It shows colourways
+  that aren't the one being sold, and the same group shot on several products
+  reads as duplicate imagery.
+- Text sitting ON photography must use `--color-on-media`, never
+  `--color-white`. The latter is a *surface* role and goes dark in the dark
+  palette, which silently made the hero headline unreadable.
+
+## Categories
+
+Three: `women`, `men`, `home`. Adding another means a migration (the `products`
+category CHECK), a new listing route modelled on `app/men/page.tsx`, an entry in
+`CATEGORIES` in `lib/data.ts`, and links in `Navbar.tsx` (desktop + drawer) and
+`Footer.tsx`. `lib/api.ts` signatures stay as they are — they read the shared
+`Category` type.
+
 ## Design system
 
-- Palette: warm off-white background `#faf8f5`, near-black text `#16130f`, muted taupe/stone
-  accents, hairline borders `#e5e0da`.
+Restyled 2026-09-23 to an editorial-luxury direction. Everything is driven by the token
+block at the top of `app/globals.css` — change tokens, not call sites.
+
+- **Tokens:** `--fs-*` / `--fs-d*` (type scale), `--shadow-1..4` (elevation), `--label-*`
+  (the one uppercase micro-label motif), `--grid-cols` (drives every product grid: 2/3/4
+  at 720/1180), `--card-ratio` (per-grid-position media ratio), `--section-pad`,
+  `--gutter`, `--offset-*`.
+- **Editorial asymmetry is CSS-only** — `nth-child` on `.grid--4 > *` varies media ratio
+  and offsets alternate columns. Offsets MUST use `margin-top`, never `transform`:
+  `ScrollReveal` animates `transform` on that same element and would cancel it.
+- **After any scripted edit to `app/globals.css`, check brace balance.** An unclosed
+  `@media` silently nests the rest of the file inside it — the site then looks correct at
+  desktop width and unstyled below the breakpoint.
+- Reduced-motion overrides live at the END of the file so they win on equal specificity.
+- Palette: warm off-white background `#faf8f5`, near-black text `#14110d`, 4 surface
+  steps, hairline borders `#e3ddd4`, `--color-sale` for markdowns (distinct from
+  `--color-error`). `--color-text-faint` is decorative only — it fails AA for body text.
 - Typography: Google Fonts — "Cormorant Garamond" (display serif, headings) + "Inter" (sans,
   body).
 - Style: generous whitespace, hairline dividers, uppercase micro-labels with letter-spacing,

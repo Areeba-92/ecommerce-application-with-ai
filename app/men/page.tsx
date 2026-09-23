@@ -32,7 +32,7 @@ export default async function MenPage({ searchParams }: MenPageProps) {
         <SortSelect current={activeSort} />
       </div>
       {products.length > 0 ? (
-        <div className="grid grid--4" style={{ paddingBottom: "4rem" }}>
+        <div className="grid grid--4">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

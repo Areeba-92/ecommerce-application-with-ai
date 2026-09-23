@@ -63,7 +63,11 @@ export default function PaymentPage() {
   }, [payPalUrl]);
 
   if (loading) {
-    return <div className="container" />;
+    return (
+      <div className="container">
+        <div className="loader" />
+      </div>
+    );
   }
 
   if (notFound) {
@@ -74,7 +78,6 @@ export default function PaymentPage() {
           <Link
             href="/profile"
             className="btn btn--primary"
-            style={{ marginTop: "1.5rem", display: "inline-flex" }}
           >
             Go to Profile
           </Link>
@@ -108,7 +111,7 @@ export default function PaymentPage() {
         <span className="eyebrow">Order Placed</span>
         <h1 className="section__title">Complete Your Payment</h1>
         <p className="confirmation__order-number">{order?.id}</p>
-        <p style={{ marginTop: "1rem", fontSize: "1.4rem" }}>
+        <p className="confirmation__amount">
           {money(order?.total ?? 0)}
         </p>
 

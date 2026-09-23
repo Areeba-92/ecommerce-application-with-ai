@@ -79,7 +79,7 @@ export default async function HomePage() {
       </section>
 
       {newArrivals.length > 0 && (
-        <section className="section section--tight">
+        <section className="section section--tight section--offset">
           <div className="container">
             <div className="section__head">
               <div>
@@ -124,10 +124,35 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section
-        className="promo-banner"
-        style={{ background: "var(--color-bg)", borderTop: "1px solid var(--color-border)" }}
-      >
+      <section className="brand-story">
+        <div className="brand-story__media">
+          <Image
+            src="https://images.unsplash.com/photo-1752794673269-dc356838c5fd?auto=format&fit=crop&w=1400&q=80"
+            alt="A HAVEN abaya photographed in daylight"
+            fill
+            sizes="(max-width: 900px) 100vw, 50vw"
+          />
+        </div>
+        <div className="brand-story__body">
+          <span className="eyebrow">Made With Intention</span>
+          <h2 className="section__title">Considered, never complicated</h2>
+          <p className="brand-story__text">
+            HAVEN began with a simple conviction: modest dressing deserves the
+            same care as any other wardrobe. We choose fabrics for how they fall
+            and how they age, and cut silhouettes meant to be worn often rather
+            than saved for occasions.
+          </p>
+          <p className="brand-story__text">
+            Nothing here shouts. The intention is quieter than that — pieces you
+            reach for without thinking, season after season.
+          </p>
+          <Link href="/about" className="btn btn--outline">
+            Discover Our Story
+          </Link>
+        </div>
+      </section>
+
+      <section className="promo-banner promo-banner--plain">
         <h2 className="promo-banner__title">Free Worldwide Shipping</h2>
         <p className="promo-banner__sub">On all orders over $75</p>
       </section>

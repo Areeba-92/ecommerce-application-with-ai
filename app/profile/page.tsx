@@ -28,20 +28,9 @@ interface OrderRow {
 }
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
-  const paid = status === "paid";
   return (
-    <span
-      style={{
-        fontSize: "0.68rem",
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-        padding: "0.2rem 0.55rem",
-        borderRadius: "999px",
-        border: `1px solid ${paid ? "var(--color-success)" : "var(--color-error)"}`,
-        color: paid ? "var(--color-success)" : "var(--color-error)",
-      }}
-    >
-      {paid ? "Paid" : "Unpaid"}
+    <span className={`pill pill--${status}`}>
+      {status === "paid" ? "Paid" : "Unpaid"}
     </span>
   );
 }
@@ -97,12 +86,16 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return <div className="container" />;
+    return (
+      <div className="container">
+        <div className="loader" />
+      </div>
+    );
   }
 
   return (
     <div className="container">
-      <div className="static-page" style={{ maxWidth: "none" }}>
+      <div className="static-page static-page--wide">
         <div className="profile-header">
           <div>
             <span className="eyebrow">Account</span>
@@ -132,11 +125,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.6rem",
-                  }}
+                  className="order-history-card__status"
                 >
                   <PaymentBadge status={order.payment_status} />
                   <div className="order-history-card__meta">{money(order.total)}</div>

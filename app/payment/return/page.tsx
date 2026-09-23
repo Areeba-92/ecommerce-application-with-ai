@@ -70,7 +70,11 @@ function PaymentReturnInner() {
   }, [orderId, router]);
 
   if (phase === "checking" || phase === "confirming") {
-    return <div className="container" />;
+    return (
+      <div className="container">
+        <div className="loader" />
+      </div>
+    );
   }
 
   if (phase === "missing") {
@@ -81,7 +85,6 @@ function PaymentReturnInner() {
           <Link
             href="/profile"
             className="btn btn--primary"
-            style={{ marginTop: "1.5rem", display: "inline-flex" }}
           >
             Go to Profile
           </Link>

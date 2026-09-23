@@ -62,3 +62,9 @@ next-env.d.ts
 .roo
 .trae
 .windsurf
+
+# Source catalogue drop: 72MB of PNG masters + WebP renditions. The WebP files
+# are already uploaded to the InsForge product-images bucket and the rows are in
+# the products table, so the repo doesn't need the originals. Keep locally as
+# the archive (see "product image/README.md").
+product image/

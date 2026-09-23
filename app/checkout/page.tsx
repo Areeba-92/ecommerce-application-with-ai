@@ -107,7 +107,11 @@ export default function CheckoutPage() {
   }
 
   if (!authChecked) {
-    return <div className="container" />;
+    return (
+      <div className="container">
+        <div className="loader" />
+      </div>
+    );
   }
 
   if (items.length === 0 && !submitting) {
@@ -118,7 +122,6 @@ export default function CheckoutPage() {
           <Link
             href="/women"
             className="btn btn--primary"
-            style={{ marginTop: "1.5rem", display: "inline-flex" }}
           >
             Continue Shopping
           </Link>
@@ -198,14 +201,7 @@ export default function CheckoutPage() {
               <span>{money(item.price * item.qty)}</span>
             </div>
           ))}
-          <div
-            className="order-summary__row"
-            style={{
-              marginTop: "0.75rem",
-              paddingTop: "0.75rem",
-              borderTop: "1px solid var(--color-border)",
-            }}
-          >
+          <div className="order-summary__row order-summary__row--divide">
             <span>Subtotal</span>
             <span>{money(subtotal)}</span>
           </div>
