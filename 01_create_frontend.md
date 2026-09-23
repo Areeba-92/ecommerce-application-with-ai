@@ -11,7 +11,7 @@ global stylesheet (app/globals.css) with CSS variables, responsive rules and ani
 component styles into CSS modules only if clearly cleaner. Server components by default; add
 "use client" only where interactivity requires it.
 
-BRAND: A premium minimal fashion brand called "VELOUR" (men's & women's apparel, Zara/H&M-like
+BRAND: A premium minimal fashion brand called "HAVEN" (men's & women's apparel, Zara/H&M-like
 positioning but more upscale feel).
 
 PAGES (App Router routes):

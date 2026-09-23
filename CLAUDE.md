@@ -12,9 +12,25 @@
   the project directory. If a command would touch anything outside it, stop and ask first.
 ## Project
 
-HAVEN (renamed from VELOUR, 2026-08-29) — a premium fashion eCommerce site (men's & women's
-apparel, Zara/H&M-like positioning, more upscale feel). Next.js (App Router) + TypeScript + React.
+HAVEN — a premium fashion eCommerce site (men's & women's apparel, Zara/H&M-like positioning,
+more upscale feel). Next.js (App Router) + TypeScript + React.
 No Tailwind — styling is a single global stylesheet (`app/globals.css`) with CSS variables.
+
+**Site status:** LIVE and public at https://ecommerce-application-with-ai.vercel.app — the owner
+re-activated it on Vercel on 2026-09-23, after it had been deliberately taken private on
+2026-08-30. `VERCEL_PRIVACY.md` documents how to take it private again and how to restore it.
+
+**Free-tier auto-pause:** the InsForge backend pauses itself after a stretch of inactivity, which
+makes every product fetch fail with `No backend services available` (503) — pages still return
+200, they just render an empty catalogue. Check `npx @insforge/cli projects get` before concluding
+the app is broken; `npx @insforge/cli projects restore` brings it back in about 30-60s. Queries can
+return transient `502` / `relation "products" does not exist` errors for a few seconds while it
+finishes booting — retry before believing them.
+
+See `SECURITY_AUDIT.md` for the last full security review and its one open CRITICAL finding
+(client-supplied order totals — checkout inserts prices from the browser with no server-side
+revalidation against `products.price`). Not fixed yet; get explicit approval before changing
+checkout/order logic to address it.
 
 ## Environment
 
@@ -47,6 +63,10 @@ lib/format.ts money() helper
 scripts/import-listings.mjs listings CSV → images + lib/generated-products.ts (still
 local/demo-only — NOT wired to the live `products` table; see Backend section)
 incoming/ listings-template.csv, README.md, images/ (drop folder)
+public/videos/hero.mp4 homepage hero video (transcoded H.264, no audio, faststart);
+components/Hero.tsx falls back to the Unsplash slideshow if this file
+is ever removed. Raw source `herosection .mp4` is kept at the repo
+root, gitignored — never delete it (see .gitignore)
 
 
 - Server components by default. Add `"use client"` only where interactivity requires it.
@@ -60,10 +80,9 @@ incoming/ listings-template.csv, README.md, images/ (drop folder)
 
 ## Backend (InsForge)
 
-Real backend via [InsForge](https://insforge.dev) (project **velour** — the InsForge project's
-own name; unrelated to the app brand and left as-is, since renaming it is an infra change out of
-scope for the VELOUR → HAVEN branding rename — linked in `.insforge/project.json`; CLI: `npx
-@insforge/cli`). App code uses `@insforge/sdk` through the single client in `lib/insforge.ts`;
+Real backend via [InsForge](https://insforge.dev) (project **haven** — linked in
+`.insforge/project.json`; CLI: `npx @insforge/cli`). App code uses `@insforge/sdk` through the
+single client in `lib/insforge.ts`;
 infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
 
 - **Tables** (all RLS-enabled; see `migrations/`):

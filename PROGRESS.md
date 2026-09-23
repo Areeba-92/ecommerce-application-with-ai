@@ -1,15 +1,75 @@
 # HAVEN — Progress Notes
 
-> **Renamed 2026-08-29: VELOUR → HAVEN.** Branding-only rename (UI text, page
-> metadata, README/CLAUDE.md, `package.json` name). Historical entries below
-> still say "VELOUR" where they're describing what was literally true at the
-> time (test account emails, PayPal test handles, the InsForge project's own
-> name, past screenshots) — left as-is on purpose, not rewritten. The
-> InsForge project itself is still literally named `velour` (infra, out of
-> scope for this rename; see CLAUDE.md).
+> **Naming note:** the brand was renamed on 2026-08-29, and on 2026-09-23 the
+> old name was scrubbed from the entire project at the owner's request — the
+> InsForge backend project was renamed to `haven` too. Every entry below now
+> reads "HAVEN", including ones describing work done before the rename, where
+> the strings at the time (throwaway test-account emails, the PayPal test
+> handle, the verification-email sender name) literally used the old name.
+
+> **Site is LIVE as of 2026-09-23** at
+> https://ecommerce-application-with-ai.vercel.app — the owner re-activated it
+> on Vercel themselves, after it had been deliberately taken private on
+> 2026-08-30. The InsForge backend had auto-paused in the meantime and was
+> restored the same day (see the 2026-09-23 entry below). `VERCEL_PRIVACY.md`
+> covers taking it private again.
 
 Read this first when picking the project back up. It covers what exists, what
 was just built, what's known-broken/untested, and what to do next.
+
+## Name scrub + backend restore (2026-09-23)
+
+- **The old brand name was removed from the entire project** at the owner's
+  request. No source file had ever contained it — it lived only in docs plus
+  the backend's own project name. `grep -rni` for it across the repo now
+  returns nothing.
+  - **InsForge project renamed to `haven`** via
+    `npx @insforge/cli projects update --name haven` (verified with
+    `projects get`). Display-name only: the API host is id-based
+    (`r8x92gz9.us-east.insforge.app`) and unchanged, so no keys, env vars,
+    code, or data were touched. `.insforge/project.json`'s `project_name`
+    was updated to match. One real side effect, for the better:
+    verification emails now show `haven <noreply@insforge.dev>` as the sender.
+  - **Docs scrubbed:** `CLAUDE.md` (project line + the now-obsolete paragraph
+    explaining why the backend still had the old name), `AGENTS.md`,
+    `01_create_frontend.md` (the original brief's BRAND line), and
+    `PROGRESS.md`. Per the owner's explicit decision, the historical strings
+    in this file were rewritten too — throwaway test-account emails, the
+    PayPal test handle, and the verification-email sender name. Those strings
+    literally used the old name at the time, so treat them as normalized, not
+    as verbatim quotes.
+- **Backend was found auto-paused** (free tier, inactivity): health endpoint
+  503, `Failed to fetch products: No backend services available for app:
+  r8x92gz9` in the build log, so the site rendered an empty catalogue.
+  Restored with `npx @insforge/cli projects restore`; status went
+  `paused` → `active` and health returned 200 after ~30s. All 20 products
+  intact — a `relation "products" does not exist` error seen seconds after
+  restore was transient boot noise, not data loss.
+- **Verified live:** `/`, `/women`, `/men`, `/login` all 200 on the public URL,
+  and the pages genuinely render DB-backed products (212 product cards on the
+  homepage, 122 on `/women`) — confirming the statically prerendered homepage
+  was not frozen with an empty catalogue.
+- `npm run build` clean, zero type errors.
+
+## Hero video + security audit (2026-08-30)
+
+- **Hero section** now plays a real video (`public/videos/hero.mp4`,
+  transcoded H.264/faststart, audio stripped) instead of the 3-image Unsplash
+  crossfade — see `components/Hero.tsx` (the video branch already existed,
+  just needed the file). Raw source kept on disk at `herosection .mp4`
+  (gitignored, never delete it — see `.gitignore`) in case a re-encode is
+  ever needed.
+- **Full read-only security audit performed** — see `SECURITY_AUDIT.md` for
+  the complete report. One-line summary: auth/RLS/admin-authorization/secrets
+  all came back SAFE; the one real (CRITICAL-rated) finding is that
+  **`app/checkout/page.tsx` inserts client-supplied `price`/`subtotal`/`total`
+  into the `orders` table with no server-side revalidation against the live
+  `products.price`** — low real-world blast radius today since PayPal.me
+  payment is already manual/trust-based and decoupled from the DB total, but
+  would become genuinely exploitable if a real payment API is ever wired in.
+  Not fixed yet — waiting on approval (see SECURITY_AUDIT.md's "Top 5").
+- **Site was then taken private** at the user's request — see the banner at
+  the top of this file and `VERCEL_PRIVACY.md`.
 
 ## Live deployment (Vercel Hobby tier)
 
@@ -55,7 +115,7 @@ deploy this pass — `npx vercel link` created it fresh, nothing pre-existed.)
   response back. A genuine CORS block would show as a browser-level network
   error instead, and none appeared. `allowed_redirect_urls` in InsForge's
   auth config is empty, but that setting only applies to OAuth/link-based
-  redirect flows — VELOUR uses code-based email/password auth, which
+  redirect flows — HAVEN uses code-based email/password auth, which
   doesn't touch it, so nothing needed changing there.
 - Signup flow reaches the "enter your 6-digit code" screen cleanly on the
   live URL, no errors. (Note: at the time this deployment pass was run, real
@@ -65,7 +125,7 @@ deploy this pass — `npx vercel link` created it fresh, nothing pre-existed.)
   was still verified via CLI rather than waiting on a real inbox, since
   disposable `@example.com` addresses can't receive mail regardless.)
 - Full cart → checkout → payment flow verified live end-to-end with a
-  throwaway `velour-live-check-*@example.com` account (email-verified via
+  throwaway `haven-live-check-*@example.com` account (email-verified via
   CLI since it's a disposable test address, deleted after testing): add to
   cart → checkout → order `pending`/`unpaid` in DB → payment interstitial
   correctly showed the demo-mode "Simulate Payment" banner (confirming
@@ -146,7 +206,7 @@ another provider with server-side webhooks) — a separate, larger change.
 
 ### Verified (Playwright E2E against `npm run start`, real InsForge backend)
 
-Both flows tested with throwaway `velour-paypal-*@example.com` accounts
+Both flows tested with throwaway `haven-paypal-*@example.com` accounts
 (email-verified via CLI since disposable test addresses can't receive real
 mail — this is unrelated to SMTP, see the correction further down; accounts
 + their cascaded orders were deleted after testing):
@@ -157,7 +217,7 @@ mail — this is unrelated to SMTP, see the correction further down; accounts
   `Paid` badge and `CONFIRMED` tracker state.
 - **Real mode** (temporarily set `NEXT_PUBLIC_PAYPAL_ME_URL` to a fake handle
   for the test, reverted after): same flow, plus confirmed the PayPal link
-  is built correctly (`https://paypal.me/velourtest/148.00`) and that the
+  is built correctly (`https://paypal.me/haventest/148.00`) and that the
   auto-redirect actually fires (landed on real paypal.com in the test
   browser).
 - DB-level tampering checks (see migration section above) run directly
@@ -179,12 +239,12 @@ mode is what this runs in locally until a real PayPal.me handle is set in
 ## Where things stand
 
 **Frontend**: a complete Next.js (App Router) + TypeScript fashion ecommerce
-site, brand "VELOUR", catalog pivoted to Islamic/modest wear (abayas, hijabs,
+site, brand "HAVEN", catalog pivoted to Islamic/modest wear (abayas, hijabs,
 jilbabs, thobes, kanduras, jubbahs, prayer wear, accessories). No Tailwind —
 hand-written CSS design system in `app/globals.css`.
 
 **Backend**: a real InsForge backend is now wired in (this was previously
-100% mock data). Project name **velour**, linked via `.insforge/project.json`
+100% mock data). Project name **haven**, linked via `.insforge/project.json`
 and `.env.local` (both already git-ignored). Free tier, currently near-zero
 usage — nowhere close to any limit (500MB DB / 1GB storage / 5GB bandwidth
 caps).
@@ -244,7 +304,7 @@ because `auth.smtp.enabled = false` (no *custom* SMTP provider configured),
 and that real signups would get stuck on the "enter your code" screen. That
 was wrong — confirmed 2026-08-29 with a screenshot of a real delivered
 email: a genuine signup (`areebamahmood032@gmail.com`) received "724319 is
-your verification code" from `velour <noreply@insforge.dev>`, and that
+your verification code" from `haven <noreply@insforge.dev>`, and that
 account is fully signed in and using `/profile` today. So `auth.smtp.enabled
 = false` means no *custom* provider is set, not that verification emails
 don't send — InsForge evidently has a default/platform sender
