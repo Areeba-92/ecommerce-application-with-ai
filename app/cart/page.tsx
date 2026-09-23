@@ -5,9 +5,7 @@ import Image from "next/image";
 import { useCart } from "@/lib/store";
 import QtyStepper from "@/components/QtyStepper";
 import { money } from "@/lib/format";
-
-const SHIPPING_THRESHOLD = 75;
-const SHIPPING_FLAT = 9.95;
+import { shippingFor } from "@/lib/shipping";
 
 export default function CartPage() {
   const { items, remove, updateQty, subtotal } = useCart();
@@ -29,7 +27,7 @@ export default function CartPage() {
     );
   }
 
-  const shipping = subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_FLAT;
+  const shipping = shippingFor(subtotal);
   const total = subtotal + shipping;
 
   return (

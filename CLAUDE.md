@@ -27,10 +27,11 @@ the app is broken; `npx @insforge/cli projects restore` brings it back in about 
 return transient `502` / `relation "products" does not exist` errors for a few seconds while it
 finishes booting — retry before believing them.
 
-See `SECURITY_AUDIT.md` for the last full security review and its one open CRITICAL finding
-(client-supplied order totals — checkout inserts prices from the browser with no server-side
-revalidation against `products.price`). Not fixed yet; get explicit approval before changing
-checkout/order logic to address it.
+See `SECURITY_AUDIT.md` for the last full security review. Its CRITICAL finding
+(client-supplied order totals) was **fixed on 2026-09-23**, along with a payment-bypass hole found
+during that work — both are now enforced by the `orders_enforce_integrity` trigger described in
+the Backend section. Remaining audit items are hardening only (security headers, password policy).
+Still get explicit approval before changing checkout/order/payment logic.
 
 ## Environment
 
@@ -60,6 +61,9 @@ getNewArrivals, getTrending, getRelated, getSubcategories
 lib/store.tsx cart context — localStorage for guests, synced to the `carts`
 table (write-through) for signed-in users
 lib/format.ts money() helper
+lib/shipping.ts free-shipping threshold + flat rate, shared by cart and checkout.
+Mirrored in the orders_enforce_integrity trigger — the SQL copy is what is
+actually charged, so change both together.
 scripts/import-listings.mjs listings CSV → images + lib/generated-products.ts (still
 local/demo-only — NOT wired to the live `products` table; see Backend section)
 incoming/ listings-template.csv, README.md, images/ (drop folder)
@@ -99,7 +103,18 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
     `pending`+`unpaid` → `confirmed`+`paid`, exactly once — see
     `app/payment/`). `status` moves pending → confirmed → shipped → delivered;
     shipped/delivered transitions happen via the InsForge dashboard/DB, not the
-    app. Payment is PayPal (PayPal.me link, `payment_status`/`payment_method`
+    app. **Pricing is server-enforced:** a `BEFORE INSERT` trigger
+    (`orders_enforce_integrity`) discards whatever the client sends for money and
+    recomputes `items[].price`, `subtotal`, `shipping` and `total` from the live
+    `products` table, and forces every client-placed order to start
+    `pending`/`unpaid` with a server-set `created_at`. It rejects unknown products,
+    bad quantities, unavailable sizes and oversized carts. Like the update guard it
+    exempts `project_admin`, **so `db query` cannot be used to test it** — attacks
+    must be run from a signed-in SDK session or they pass straight through. The
+    trigger rebuilds `items` with exactly five keys
+    (`productId/name/size/qty/price`); adding a key to the checkout insert without
+    adding it there will silently drop it.
+    Payment is PayPal (PayPal.me link, `payment_status`/`payment_method`
     columns) — see `app/checkout/`, `app/payment/[orderId]/`,
     `app/payment/return/`. PayPal.me has no server callback, so payment
     confirmation is trust-based by design, not a bug.

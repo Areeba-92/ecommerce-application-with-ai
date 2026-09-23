@@ -6,9 +6,7 @@ import Link from "next/link";
 import { useCart } from "@/lib/store";
 import { money } from "@/lib/format";
 import { insforge, getCurrentUserOnce } from "@/lib/insforge";
-
-const SHIPPING_THRESHOLD = 75;
-const SHIPPING_FLAT = 9.95;
+import { shippingFor } from "@/lib/shipping";
 
 const REQUIRED_FIELDS = [
   "name",
@@ -29,7 +27,7 @@ export default function CheckoutPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const shipping = subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_FLAT;
+  const shipping = shippingFor(subtotal);
   const total = subtotal + shipping;
 
   useEffect(() => {
@@ -96,7 +94,11 @@ export default function CheckoutPage() {
 
     if (orderError || !orderRows?.[0]) {
       setSubmitting(false);
-      setSubmitError("Could not place your order. Please try again.");
+      // The DB rejects orders it can't price (unknown product, bad quantity or
+      // size) with a specific message — show it rather than a dead end.
+      setSubmitError(
+        orderError?.message || "Could not place your order. Please try again."
+      );
       return;
     }
 

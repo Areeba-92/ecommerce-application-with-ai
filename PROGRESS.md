@@ -17,6 +17,69 @@
 Read this first when picking the project back up. It covers what exists, what
 was just built, what's known-broken/untested, and what to do next.
 
+## Server-side order pricing — the CRITICAL audit finding is fixed (2026-09-23)
+
+The open CRITICAL finding from `SECURITY_AUDIT.md` is closed, plus a second hole
+found while fixing it.
+
+- **What was wrong:** `app/checkout/page.tsx` inserted `items[].price`, `subtotal`
+  and `total` straight from browser cart state, and `orders_insert_own` only checks
+  `auth.uid() = user_id`. Anyone could place an order at any price from devtools.
+- **Second hole, not in the original audit:** `authenticated` held a table-wide
+  INSERT grant, so a client could insert a row already marked
+  `status='confirmed', payment_status='paid'` and skip payment entirely. The existing
+  `orders_guard_payment_update` trigger never saw it — it only fires on UPDATE.
+- **Fix:** two migrations (`20260923151447_enforce-order-integrity.sql`, then
+  `20260923151851_harden-order-integrity-trigger.sql`) adding a `BEFORE INSERT`
+  trigger that recomputes every line from `products.price`, recomputes
+  subtotal/shipping/total, forces `pending`/`unpaid`/`paypal`, nulls
+  `payment_receipt_url`, pins `created_at`, and rejects unknown products, bad
+  quantities, unavailable sizes and carts over 50 lines. Mirrors the existing payment
+  guard's style, including the `project_admin` exemption. The dead `DELETE` grant on
+  `orders` was revoked too.
+- **Tampered values are corrected, not rejected** — deliberate. A stale cart after a
+  genuine price change still checks out, and `/payment/<id>` re-reads `total` from the
+  DB, so the real amount is shown before any money moves.
+- **`lib/shipping.ts`** now holds the free-shipping threshold and flat rate, imported
+  by both `app/cart/page.tsx` and `app/checkout/page.tsx` (they each had their own
+  copy). The trigger keeps its own commented copy — that SQL one is authoritative.
+- **Checkout now surfaces the DB's rejection message** instead of a generic
+  "Could not place your order".
+
+### Testing note — read this before re-testing
+
+`npx @insforge/cli db query` runs as **`project_admin`, which the trigger exempts by
+design.** Attack attempts run that way sail through and prove nothing. All verification
+must run from a signed-in SDK session.
+
+Verified as a real authenticated throwaway user — forged price `0.01` stored at the true
+148; forged total overwritten; forged item name replaced from the catalogue; negative,
+zero, fractional, string and >999 quantities rejected; unknown `productId` rejected
+rather than silently dropped; empty `items` rejected; unavailable size rejected; 60-line
+cart rejected; an insert claiming `confirmed`/`paid` stored as `pending`/`unpaid`;
+backdated `created_at` and forged receipt URL both overwritten. Free-shipping boundary
+checked both sides (24 -> 9.95 shipping; 296 -> free).
+
+Existing payment flow re-verified unchanged: the `pending/unpaid -> confirmed/paid`
+transition still succeeds exactly once, a repeat is still rejected, and forging `total`
+on an existing order still fails with `permission denied`.
+
+Full happy path re-run in a real browser (Playwright, production build): sign in ->
+cart -> checkout showing `$296.00` with free shipping -> Place Order -> payment page
+showing the same `$296.00` -> Simulate Payment -> return -> `/profile` showing the
+`PAID` badge, `CONFIRMED` tracker and `Open-Front Abaya x 2 (M) $296.00`. Only console
+error is the pre-existing guest `auth/refresh` 401.
+
+Both throwaway accounts and all test orders were deleted afterwards; the owner's real
+$310 order is untouched.
+
+### Note: the free-tier backend is slow right after a restore
+
+During this pass `/product/[id]` took 16s and a direct InsForge call took 28s, which
+made the first browser runs time out and looked like an app bug. It wasn't — `lib/api.ts`
+and the product page were never modified. If pages hang, check backend latency before
+suspecting the code.
+
 ## Name scrub + backend restore (2026-09-23)
 
 - **The old brand name was removed from the entire project** at the owner's

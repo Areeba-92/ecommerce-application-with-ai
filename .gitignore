@@ -37,11 +37,6 @@ yarn-error.log*
 # scratch/temp working files (never committed)
 .scratch/
 
-# Security audit — deliberately NOT committed. This repo is public and the
-# report contains a working exploit for the still-unfixed client-supplied
-# order totals finding. Remove this line once that's fixed server-side.
-SECURITY_AUDIT.md
-
 # raw hero video source (kept on disk per user request, not committed —
 # public/videos/hero.mp4 is the transcoded asset actually served)
 herosection .mp4
