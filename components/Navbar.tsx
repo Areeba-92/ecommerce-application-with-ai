@@ -84,8 +84,10 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="announcement">Free worldwide shipping over $75</div>
       <header className="navbar">
+        <div className="announcement" role="note">
+          Student demo project · Not a real store
+        </div>
         <div className="container navbar__inner">
           <button
             type="button"

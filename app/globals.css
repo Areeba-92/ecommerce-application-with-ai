@@ -117,8 +117,13 @@
   --container-max: 1400px;
   --container-narrow: 720px;
   --container-pad: clamp(1rem, 4vw, 2.5rem);
-  --header-height: 108px;
-  --header-height-mobile: 76px;
+  /* --header-height* = announcement bar + navbar row. Both live inside the
+     fixed <header>, so page offsets and sticky tops read these totals. */
+  --announcement-height: 32px;
+  --navbar-height: 108px;
+  --navbar-height-mobile: 76px;
+  --header-height: calc(var(--navbar-height) + var(--announcement-height));
+  --header-height-mobile: calc(var(--navbar-height-mobile) + var(--announcement-height));
 
   --radius-sm: 2px;
   --radius-md: 3px;
@@ -866,7 +871,13 @@ main {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: var(--space-2) var(--space-4);
+  /* Fixed single-line height: it is counted in --header-height*. */
+  height: var(--announcement-height);
+  line-height: var(--announcement-height);
+  padding: 0 var(--space-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* === Navbar === */
@@ -885,12 +896,12 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: var(--header-height-mobile);
+  height: var(--navbar-height-mobile);
 }
 
 @media (min-width: 820px) {
   .navbar__inner {
-    height: var(--header-height);
+    height: var(--navbar-height);
   }
 }
 
