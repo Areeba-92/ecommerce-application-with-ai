@@ -12,12 +12,14 @@ import { insforge } from "./insforge";
 import { CATEGORIES, type Category, type Product } from "./data";
 
 export type SortOption = "featured" | "price-asc" | "price-desc" | "newest";
+export type Collection = "featured" | "new" | "trending";
 
 export interface GetProductsParams {
   category?: Category;
   subcategory?: string;
   sort?: SortOption;
   query?: string;
+  collection?: Collection;
   limit?: number;
 }
 
@@ -78,7 +80,7 @@ function sortProducts(items: Product[], sort: SortOption = "featured"): Product[
 }
 
 export async function getProducts(params: GetProductsParams = {}): Promise<Product[]> {
-  const { category, subcategory, sort = "featured", query, limit } = params;
+  const { category, subcategory, sort = "featured", query, collection, limit } = params;
 
   let items = await fetchAllProducts();
 
@@ -87,6 +89,13 @@ export async function getProducts(params: GetProductsParams = {}): Promise<Produ
   }
   if (subcategory) {
     items = items.filter((p) => p.subcategory === subcategory);
+  }
+  if (collection === "featured") {
+    items = items.filter((p) => p.featured);
+  } else if (collection === "new") {
+    items = items.filter((p) => p.isNew);
+  } else if (collection === "trending") {
+    items = items.filter((p) => p.trending);
   }
   if (query) {
     const q = query.trim().toLowerCase();

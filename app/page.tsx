@@ -58,7 +58,7 @@ export default async function HomePage() {
                 <span className="eyebrow">Curated</span>
                 <h2 className="section__title">Featured</h2>
               </div>
-              <Link href="/women" className="section__link">
+              <Link href="/collection/featured" className="section__link">
                 View All
               </Link>
             </div>
@@ -86,7 +86,7 @@ export default async function HomePage() {
                 <span className="eyebrow">Just In</span>
                 <h2 className="section__title">New Arrivals</h2>
               </div>
-              <Link href="/women?sort=newest" className="section__link">
+              <Link href="/collection/new" className="section__link">
                 View All
               </Link>
             </div>
@@ -109,7 +109,7 @@ export default async function HomePage() {
                 <span className="eyebrow">Most Loved</span>
                 <h2 className="section__title">Trending Now</h2>
               </div>
-              <Link href="/men" className="section__link">
+              <Link href="/collection/trending" className="section__link">
                 View All
               </Link>
             </div>

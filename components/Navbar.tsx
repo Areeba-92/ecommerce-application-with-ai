@@ -109,7 +109,7 @@ export default function Navbar() {
               Men
             </Link>
             <Link href="/home-living" className="navbar__link">
-              Home
+              Home &amp; Worship
             </Link>
           </nav>
           <div className="navbar__actions">

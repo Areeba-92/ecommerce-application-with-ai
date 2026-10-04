@@ -8,8 +8,9 @@ const columns = [
       { label: "Women", href: "/women" },
       { label: "Men", href: "/men" },
       { label: "Home & Worship", href: "/home-living" },
-      { label: "New Arrivals", href: "/women?sort=newest" },
-      { label: "Best Sellers", href: "/men?sort=newest" },
+      { label: "New Arrivals", href: "/collection/new" },
+      { label: "Featured", href: "/collection/featured" },
+      { label: "Trending", href: "/collection/trending" },
     ],
   },
   {
