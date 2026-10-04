@@ -61,6 +61,10 @@ getNewArrivals, getTrending, getRelated, getSubcategories
 lib/store.tsx cart context — localStorage for guests, synced to the `carts`
 table (write-through) for signed-in users
 lib/format.ts money() helper
+app/collection/[type]/ cross-category listing for featured | new | trending (anything else →
+404), via getProducts({ collection }). Homepage "View All" and footer
+Shop links point here — never at /men or /women.
+app/api/account/delete/ server-only route behind /profile's "Delete Account" — see Backend
 lib/data.ts also exports the `Category` union ("women" | "men" | "home") — widen
 that type, not the individual signatures, when adding a category
 lib/shipping.ts free-shipping threshold + flat rate, shared by cart and checkout.
@@ -135,6 +139,20 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
   `@example.com` in automated testing) can't receive it, which is why test
   scripts in this repo mark `email_verified` via the CLI instead of waiting
   on a real inbox.
+- **Account deletion** (added 2026-10-04): the SDK has no self-delete, so
+  `app/api/account/delete/route.ts` does it server-side. It verifies the caller's
+  own access token (`GET /api/auth/sessions/current` — note that response has
+  **no `role` field**; checking for one rejected every user), then uses the
+  admin key to delete that user's `payment-uploads` objects (matched on
+  `uploaded_by` — `orders.payment_receipt_url` is null on every real order) and
+  the auth user via `DELETE /api/auth/users`. Carts and **orders are deleted**,
+  not anonymized, by the existing `ON DELETE CASCADE` on `user_id`.
+  Needs **`INSFORGE_API_KEY`** (server-only, never `NEXT_PUBLIC_`; value is
+  `api_key` in `.insforge/project.json`) in `.env.local` locally and in **Vercel →
+  Production environment → Environment Variables** (type Secret), then a
+  redeploy. Missing key → the route returns 500 "unavailable"; a 401 "Not
+  signed in" on an unauthenticated POST means it is configured. The site is
+  hosted on Vercel, not InsForge — `insforge deployments env` does not apply.
 - **Storage buckets**: `product-images` (public — product photos) and
   `payment-uploads` (private — no longer used by app code; checkout's receipt
   upload was replaced by PayPal, bucket left in place rather than deleted).
