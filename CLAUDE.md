@@ -154,12 +154,17 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
   signed in" on an unauthenticated POST means it is configured. The site is
   hosted on Vercel, not InsForge — `insforge deployments env` does not apply.
 - **Storage buckets**: `product-images` (public — product photos) and
-  `payment-uploads` (private — no longer used by app code; checkout's receipt
-  upload was replaced by PayPal, bucket left in place rather than deleted).
+  `payment-uploads` (private — nothing writes to it any more; checkout's receipt
+  upload was replaced by PayPal, bucket left in place rather than deleted. The
+  only code that touches it is the account-deletion route, which removes a
+  deleted user's old files).
 - **RLS convention**: reference users with `auth.users(id)`; use `auth.uid()` in
   policies. Never bypass RLS from app code — infrastructure-level fixes (new
   tables/policies/buckets) go through the CLI (`db migrations`, `db query`,
-  `storage create-bucket`), not the SDK.
+  `storage create-bucket`), not the SDK. **One deliberate exception:**
+  `app/api/account/delete/route.ts` uses the admin key, because deleting an auth
+  user has no non-admin API. Keep it self-scoped (identity from the caller's
+  token only) and don't add other uses of `INSFORGE_API_KEY` without asking.
 - **Cross-component auth state**: no context provider was added; components that
   need to know sign-in state call `insforge.auth.getCurrentUser()` directly and
   listen for `lib/insforge.ts`'s `AUTH_CHANGED_EVENT` (dispatched by

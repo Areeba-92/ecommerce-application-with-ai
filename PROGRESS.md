@@ -8,8 +8,9 @@
 > handle, the verification-email sender name) literally used the old name.
 
 > **Site is LIVE** at https://ecommerce-application-with-ai.vercel.app —
-> last deployed **2026-09-24** (deployment `b5u1t9yed`), and the deployed
-> frontend, the repo and the database are all in sync as of that deploy.
+> last deployed **2026-10-04** (owner-triggered redeploy after adding the
+> `INSFORGE_API_KEY` secret), and the deployed frontend, the repo and the
+> database are all in sync as of that deploy.
 > `VERCEL_PRIVACY.md` covers taking it private again.
 >
 > **Two things are knowingly unfinished — read these before doing anything
@@ -18,6 +19,69 @@
 
 Read this first when picking the project back up. It covers what exists, what
 was just built, what's known-broken/untested, and what to do next.
+
+## Collection pages, nav/footer links, account deletion (2026-10-04)
+
+### What changed
+
+- **"View All" / footer links went to the wrong pages.** The homepage Trending
+  "View All" was hardcoded to `/men`, Featured to `/women`, New Arrivals to
+  `/women?sort=newest`; the footer had "Best Sellers" → `/men?sort=newest`. No
+  listing page could filter by flag, so there was nowhere correct to point them.
+  Added `getProducts({ collection: "featured" | "new" | "trending" })` (optional,
+  backward compatible) and `app/collection/[type]/page.tsx` (anything else →
+  404), reusing the existing grid, sort dropdown and styles. Footer "Best
+  Sellers" is now **"Featured"** (there is no separate best-seller flag), and a
+  "Trending" link was added.
+- **"Home" appeared twice in the desktop nav.** Not a double render — the
+  `/home-living` category link was labelled "Home" next to the real Home link.
+  Now "Home & Worship", matching the mobile drawer.
+- **Delete Account on `/profile`.** A Danger Zone + confirmation modal (confirm
+  button disabled until `DELETE` is typed; loading and error states). The SDK has
+  no self-delete, so `app/api/account/delete/route.ts` verifies the caller's
+  token and uses the server-only `INSFORGE_API_KEY` to delete their
+  `payment-uploads` objects and their auth user. Carts and **orders are
+  deleted** (not anonymized) by the existing `ON DELETE CASCADE`. Afterwards the
+  page signs out, clears the localStorage cart, redirects to `/` and toasts
+  "Account deleted". Security review is appended to `SECURITY_AUDIT.md`.
+
+### Bugs found while building it
+
+- **Every delete failed with "session expired".** The route checked
+  `user.role === "authenticated"`, taken from the REST docs' example response —
+  the real `/api/auth/sessions/current` response has no `role` field. Caught by
+  the owner's manual test; nothing was deleted by the failed attempts.
+- **Receipts aren't linked through orders.** The first draft found receipts via
+  `orders.payment_receipt_url`, but that column is null on every real order —
+  the files are linked only by `storage.objects.uploaded_by`. Switched to that
+  before shipping.
+
+### Verified
+
+- Build clean; production server and **live site**: 200 for `/`, `/men`,
+  `/women`, `/home-living`, all three collection pages and `/profile`; 404 for an
+  unknown collection.
+- Collection counts match the DB exactly (3 trending — all women's, no men's or
+  home product is flagged trending — 20 new, 4 featured).
+- Playwright: "Home" once on screen at 1440px and once in the 375px drawer; all
+  3 "View All" and all 6 footer Shop links land on the right page.
+- Deletion: the owner deleted a real test account from `/profile`; the DB then
+  showed the auth user gone and **zero** orphaned cart or order rows. The
+  automated E2E (which would also have placed an order and uploaded a receipt
+  first) was not run — the manual test covered an account with no orders.
+- Live `/api/account/delete` returns 401 for no/forged token, which also proves
+  `INSFORGE_API_KEY` is set on the deployment (a missing key returns 500).
+
+### Left as-is
+
+- **2 orphaned receipts** in `payment-uploads` (2026-08-28) belong to an account
+  deleted before this feature existed. Harmless; delete them if you want a clean
+  bucket.
+- Signed-out visitors log a **401 in the browser console** from the auth check
+  on page load. Pre-existing and untouched here, but not root-caused either.
+- **Deployment env vars:** the site is on Vercel, not InsForge hosting —
+  `insforge deployments env` has no effect (`deployments list` is empty). The key
+  was added in Vercel → Production → Environment Variables.
 
 ## Where this stands — end of 2026-09-24
 

@@ -23,8 +23,15 @@ database, auth, and PayPal-based checkout — not a demo.
   database trigger enforce that a client can only ever move an order from
   `pending`/`unpaid` to `confirmed`/`paid` — once, and touching no other
   field (total, items, address) — no matter what the client sends.
+- **Collections** — `/collection/featured`, `/collection/new` and
+  `/collection/trending` list every flagged product across all categories;
+  the homepage "View All" buttons and footer Shop links point here.
 - **Profile** — order history with a payment badge and a
-  pending → confirmed → shipped → delivered status tracker.
+  pending → confirmed → shipped → delivered status tracker, plus a
+  **Delete Account** danger zone (type-`DELETE` confirmation). Deletion runs in
+  a server-only route that verifies the caller's own session, then removes
+  their uploaded files and auth user; their cart and orders go with it via
+  `ON DELETE CASCADE`.
 
 ## Stack
 
@@ -50,10 +57,12 @@ move to PayPal Orders API or Stripe for real server-side verification. See
 ```
 app/                    routes + layout.tsx + globals.css
   women/ men/ home-living/  category listing pages
+  collection/[type]/     featured | new | trending listings (all categories)
   checkout/              order placement
   payment/[orderId]/     PayPal handoff interstitial
   payment/return/        payment confirmation (flips order to paid)
-  profile/               order history + status tracker
+  profile/               order history + status tracker + delete account
+  api/account/delete/    server-only account deletion (uses INSFORGE_API_KEY)
 components/             shared + page-level components (server by default)
 lib/api.ts              InsForge-backed data layer — the backend-swap seam
 lib/insforge.ts         single InsForge SDK client + auth-state helpers
@@ -71,17 +80,22 @@ incoming/               listings-template.csv, README.md, images/ drop folder
 
 ```bash
 npm install
-cp .env.local.example .env.local   # fill in your own InsForge project URL + anon key
+cp .env.local.example .env.local   # fill in your own InsForge project URL + keys
 npm run dev
 ```
 
-Env vars (all `NEXT_PUBLIC_*`, safe for the client):
+Env vars:
 
 | Var | Required | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_INSFORGE_URL` | yes | InsForge project URL |
 | `NEXT_PUBLIC_INSFORGE_ANON_KEY` | yes | InsForge anon key |
 | `NEXT_PUBLIC_PAYPAL_ME_URL` | no | Your PayPal.me link. Unset = demo mode (a "Simulate Payment" button replaces the real redirect) |
+| `INSFORGE_API_KEY` | for account deletion | **Server-only secret** — the project admin key (`api_key` in `.insforge/project.json`). Never give it a `NEXT_PUBLIC_` prefix. Without it, "Delete Account" shows an error and nothing else is affected |
+
+The three `NEXT_PUBLIC_*` values are safe in the browser — row-level security,
+not key secrecy, is what protects the data. `INSFORGE_API_KEY` bypasses RLS and
+is read only by `app/api/account/delete/route.ts`.
 
 ## Commands
 
@@ -121,6 +135,12 @@ Two caveats on that import:
 
 Already deployed to Vercel's free Hobby tier via the Vercel CLI
 (`vercel --prod`) — no server-side cron or filesystem writes at runtime, so
-it fits the tier with no extra configuration. Set the same env vars from the
-table above as Production environment variables on the Vercel project before
-deploying your own copy.
+it fits the tier with no extra configuration. Set the env vars from the table
+above on the Vercel project (Settings → Environments → **Production** →
+Environment Variables) before deploying your own copy — add `INSFORGE_API_KEY`
+as type **Secret** — and redeploy after changing any of them; saved variables
+only reach the site on the next deployment.
+
+To check the deletion key is wired up without deleting anything,
+`curl -X POST <site>/api/account/delete` should answer **401 "Not signed in."**
+— a **500** means `INSFORGE_API_KEY` is missing on that deployment.

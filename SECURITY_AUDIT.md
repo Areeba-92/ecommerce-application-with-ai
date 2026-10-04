@@ -6,6 +6,13 @@ surfaces, API routes, e-commerce logic, SMTP, file uploads, CORS/headers, depend
 The audit itself changed no code. The CRITICAL finding below has since been fixed (see
 its status block), along with a related payment-bypass hole discovered during that work.
 
+> **Update 2026-10-04 — the app now has one server-side admin surface.** Account
+> deletion added `app/api/account/delete/route.ts`, the first API route, and the first
+> use of the admin key (`INSFORGE_API_KEY`) outside the CLI. Statements below that say
+> "no API routes exist" or "no admin surface exists" were true on 2026-08-30 and are
+> annotated where they no longer hold. See **"Account deletion route (2026-10-04)"**
+> at the end of this file for its review.
+
 ---
 
 ## 🔴 CRITICAL — Fix Immediately
@@ -131,7 +138,9 @@ questions this audit was scoped to answer:
     (`auth.uid() = user_id` returns NULL, not true, for both an unauthenticated caller
     and a mismatched user, so rows are simply invisible).
   - `orders` has **no DELETE policy at all** — nobody, including the owner, can delete
-    order history via the client. Good for auditability.
+    order history via the client. Good for auditability. *(Still true. Since
+    2026-10-04 a user's orders are removed server-side when they delete their account,
+    via the existing `ON DELETE CASCADE` — not through any client DELETE.)*
   - `products` has **only a public SELECT policy** — no INSERT/UPDATE/DELETE policy
     exists for any role, so even a fully authenticated normal user cannot create
     products, change prices, or delete listings. There is no admin surface in this app
@@ -165,7 +174,8 @@ questions this audit was scoped to answer:
   codebase, search-query params flow through React's auto-escaping.
 - **No API routes / server actions / middleware exist at all** — this is a pure client
   + InsForge-REST architecture, so RLS genuinely is the entire authorization surface,
-  and all of it was audited above.
+  and all of it was audited above. *(Superseded 2026-10-04: one route,
+  `/api/account/delete`, now exists — reviewed at the end of this file.)*
 - **`npm audit` — 0 vulnerabilities** across the full dependency tree.
 
 ---
@@ -176,9 +186,9 @@ questions this audit was scoped to answer:
 |---|---|
 | Authentication | **SAFE** |
 | Database authorization (RLS) | **SAFE** |
-| Admin authorization | **SAFE** (no admin surface exists to attack) |
-| API security | **SAFE** (no API routes exist; InsForge/RLS is the only surface, and it's sound) |
-| Secrets | **SAFE** |
+| Admin authorization | **SAFE** (one server-only admin surface since 2026-10-04 — self-scoped account deletion, reviewed below) |
+| API security | **SAFE** (one route, `/api/account/delete`; everything else is InsForge/RLS) |
+| Secrets | **SAFE** (admin key is server-only — `.env.local` locally, a Vercel Secret in production) |
 | E-commerce logic | **SAFE** (server-recomputed totals since 2026-09-23) |
 | SMTP | **SAFE** |
 | File uploads | **SAFE** (N/A — no upload code path exists) |
@@ -210,3 +220,38 @@ Verification for the fix was done as a real authenticated user through the SDK, 
 the CLI: `npx @insforge/cli db query` runs as `project_admin`, which the trigger exempts
 by design, so CLI-based attack attempts pass straight through and prove nothing. Anyone
 re-testing this should use a signed-in session.
+
+---
+
+## Account deletion route (2026-10-04)
+
+`POST /api/account/delete` (`app/api/account/delete/route.ts`) is the only code path
+that holds the admin key, so it was reviewed on its own:
+
+- **Identity comes only from the caller's token.** The route reads
+  `Authorization: Bearer <access token>`, resolves it with InsForge
+  (`GET /api/auth/sessions/current`) and deletes *that* user. It ignores the request
+  body entirely — there is no user ID parameter to tamper with, so a user can only ever
+  delete themselves.
+- **No CSRF exposure.** Auth is a bearer header the page attaches explicitly, not a
+  cookie the browser sends automatically, so a third-party site cannot trigger it.
+- **Key handling.** `INSFORGE_API_KEY` has no `NEXT_PUBLIC_` prefix, so Next.js never
+  bundles it for the browser; it is read only in this route. It lives in the
+  gitignored `.env.local` and as a **Secret** variable on the Vercel Production
+  environment. Verified it is absent from every committed file.
+- **Fails closed.** If the key is missing the route returns 500 before reading the
+  token. If deleting any receipt fails, it stops *before* deleting the user, so a retry
+  can finish the job rather than leaving orphaned files.
+- **Bug found and fixed during testing:** the first version also required
+  `user.role === "authenticated"`, copied from the REST docs example. The real
+  response has no `role` field, so every legitimate request was rejected with
+  "session expired" — a fail-safe bug (nothing was deleted), now removed.
+- **Verified:** unauthenticated and forged-token requests return 401 on the live
+  site; a real signed-in deletion removed the auth user with no orphaned cart or order
+  rows left behind.
+- **Data decision:** orders are **deleted**, not anonymized (`orders.user_id` is
+  `NOT NULL … ON DELETE CASCADE`; anonymizing would need a schema change). This trades
+  away sales history for a clean erasure.
+- **Not added:** rate limiting (a caller can only delete their own account once) and
+  re-authentication (the modal requires typing `DELETE`, not the password). Requiring
+  the password again would be the next hardening step if this ever matters.
