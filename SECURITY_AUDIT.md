@@ -91,6 +91,11 @@ portfolio-scope app.)*
 
 ### 2. No security headers configured (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 
+> **STATUS: FIXED 2026-10-05** — `next.config.ts` `headers()` now sends CSP (incl.
+> `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `nosniff` and
+> `Referrer-Policy: strict-origin-when-cross-origin`. `script-src` still allows
+> `'unsafe-inline'` (Next.js inline bootstrap; removing it needs nonces).
+
 - **Location/file:** `next.config.ts` (no `headers()` export)
 - **Why it matters:** Confirmed via `curl -I` on the live site — only
   `strict-transport-security` is present (a Vercel default); no CSP, no clickjacking
@@ -106,6 +111,10 @@ portfolio-scope app.)*
   + the InsForge domain + Google Fonts.
 
 ### 3. Weak password policy
+
+> **STATUS: FIXED 2026-10-05** — `min_length = 8` applied live via
+> `insforge config apply`; the signup form checks the same. Verified: a 7-character
+> password is rejected by the auth API itself. No complexity rules were added.
 
 - **Location/file:** `insforge.toml` → `[auth.password]`: `min_length = 6`, no
   uppercase/lowercase/number/special-char requirement.
@@ -189,25 +198,28 @@ questions this audit was scoped to answer:
 | Admin authorization | **SAFE** (one server-only admin surface since 2026-10-04 — self-scoped account deletion, reviewed below) |
 | API security | **SAFE** (one route, `/api/account/delete`; everything else is InsForge/RLS) |
 | Secrets | **SAFE** (admin key is server-only — `.env.local` locally, a Vercel Secret in production) |
-| E-commerce logic | **SAFE** (server-recomputed totals since 2026-09-23) |
+| E-commerce logic | **SAFE** (server-recomputed totals since 2026-09-23; payment status admin-only since 2026-10-05) |
 | SMTP | **SAFE** |
 | File uploads | **SAFE** (N/A — no upload code path exists) |
-| Web security (headers) | **NEEDS FIX** (missing CSP/X-Frame-Options, low severity) |
+| Web security (headers) | **SAFE** (CSP, X-Frame-Options, nosniff, Referrer-Policy since 2026-10-05; CSP still allows inline scripts) |
+| Payment verification | **OPEN — demo only** (PayPal.me, manual admin check; no PayPal Orders API / webhook) |
 
 ---
 
-## Top 5 Things To Fix
+## Top Things To Fix
 
 1. ~~**Server-validate order totals/prices at insert**~~ — **DONE 2026-09-23.** Also
    closed a payment-bypass hole found during the work (finding 2 above).
-2. **Add security headers** in `next.config.ts` (CSP, X-Frame-Options,
-   X-Content-Type-Options, Referrer-Policy) — cheap, no functional risk, closes the
-   clickjacking/defense-in-depth gap.
-3. **Tighten the password policy** (`min_length` 8+, at least one complexity rule) via
-   `insforge config` — a config change, not code.
-4. *(Optional, not urgent)* Decide what to do with the unused `payment-uploads` bucket
+2. ~~**Add security headers**~~ — **DONE 2026-10-05.**
+3. ~~**Tighten the password policy**~~ — **DONE 2026-10-05** (`min_length` 8).
+4. **Real payment verification** — replace the PayPal.me + manual admin check with
+   the PayPal Orders API (sandbox first), server-side capture and a signature-verified,
+   idempotent webhook. Until then "paid" is set by an admin by hand.
+5. **Decide account-deletion retention** — deleting an account hard-deletes its
+   orders, including paid/shipped ones (see "Account deletion — demo behaviour").
+6. *(Optional, not urgent)* Decide what to do with the unused `payment-uploads` bucket
    — either delete it or leave it, since it's dead weight either way, not a live risk.
-5. *(Optional, not urgent)* Consider whether signup error messages from InsForge leak
+7. *(Optional, not urgent)* Consider whether signup error messages from InsForge leak
    account-enumeration info ("email already registered" vs generic) — this is platform
    behavior, not app code, so it's a "know about it" item rather than something to fix
    here.
@@ -215,6 +227,10 @@ questions this audit was scoped to answer:
 **Update 2026-09-23:** findings 1 and 2 are fixed and verified. Items 2, 3, 4 and 5 in
 the list above are still open — none is a live hole, and each is a hardening or
 housekeeping item.
+
+**Update 2026-10-05:** items 2 and 3 are done. Items 4 and 5 were added from the
+2026-10-05 audit (`SECURITY_AUDIT_2026-10-05.md`) and are the real remaining work;
+6 and 7 are unchanged housekeeping.
 
 Verification for the fix was done as a real authenticated user through the SDK, not via
 the CLI: `npx @insforge/cli db query` runs as `project_admin`, which the trigger exempts
@@ -255,3 +271,57 @@ that holds the admin key, so it was reviewed on its own:
 - **Not added:** rate limiting (a caller can only delete their own account once) and
   re-authentication (the modal requires typing `DELETE`, not the password). Requiring
   the password again would be the next hardening step if this ever matters.
+
+---
+
+## Payment status is admin-only (2026-10-05)
+
+Fixes finding C1 of `SECURITY_AUDIT_2026-10-05.md`: any signed-in user could set
+their own order to `paid`/`confirmed` without paying.
+
+- **Rule:** the browser/client must NEVER be able to set `payment_status = 'paid'`
+  or `status = 'confirmed'`. Only an admin (`project_admin` — InsForge dashboard or
+  `db query`) does that, after verifying the payment in PayPal.
+- **Enforcement** (`migrations/20261005171041_lock-payment-status-to-admin.sql`):
+  `authenticated` has no UPDATE grant on `payment_status`/`status`; its only
+  UPDATE grant is `payment_reported_at`. `orders_guard_payment_update` lets a user
+  report payment once, on their own `pending`/`unpaid` order, stamps server time,
+  and rejects any status change. A separate insert trigger clears
+  `payment_reported_at` on client inserts. `orders_enforce_integrity` (pricing) is
+  unchanged.
+- **Verified** as real signed-in users via the SDK: setting `paid` or `confirmed`
+  → `permission denied`; a second report → rejected; another user cannot report or
+  read the order; the admin can still mark it paid.
+
+---
+
+## Phase 2 hardening (2026-10-05)
+
+- **Abandoned orders expire** (`migrations/20261005172821_expire-abandoned-orders.sql`):
+  pending, unpaid, unreported orders older than 24h are refused a payment report
+  by the guard trigger and are flipped to `cancelled` by `expire_stale_orders()`
+  (SECURITY DEFINER, own orders only) when the user opens their profile or payment
+  page. No cron.
+- **Contact / shipping validated server-side**
+  (`migrations/20261005172825_validate-order-contact-and-address.sql`): expected
+  keys only, required strings, max lengths, valid email and phone, no `<`, `>` or
+  control characters. Closes audit finding M4. Pricing trigger untouched.
+- **PayPal.me link pins the currency** (`…/<total>USD`). Still a demo /
+  manual-verification flow, not verified payment processing (audit H1 remains
+  open until a PayPal Orders API + verified webhook exists).
+
+## Account deletion — demo behaviour (documented 2026-10-05)
+
+Reviewed, not changed. This is acceptable for a student demo and **would need a
+decision before handling real customers**:
+
+- `POST /api/account/delete` deletes the caller's auth user (identity from their
+  own token only) after removing their `payment-uploads` objects.
+- `carts` and **`orders` are hard-deleted** by `ON DELETE CASCADE` on `user_id` —
+  including paid, confirmed or shipped orders. There is no retained sales or
+  fulfilment record and nothing blocks deletion while an order is in progress.
+  A real shop would need to keep (anonymised) order records for accounting and
+  delivery.
+- Re-registering the same email creates a new user id; because the old rows were
+  deleted, nothing from the old account can attach to the new one.
+- No re-authentication: an open session plus typing `DELETE` is enough.

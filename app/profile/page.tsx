@@ -6,12 +6,13 @@ import Link from "next/link";
 import { insforge, getCurrentUserOnce, notifyAuthChanged } from "@/lib/insforge";
 import { money } from "@/lib/format";
 import { useToast } from "@/components/Toast";
+import { expireStaleOrders, ORDER_EXPIRY_HOURS } from "@/lib/orders";
 
 const CART_STORAGE_KEY = "haven-cart";
 const CONFIRM_WORD = "DELETE";
 
 const STATUSES = ["pending", "confirmed", "shipped", "delivered"] as const;
-type Status = (typeof STATUSES)[number];
+type Status = (typeof STATUSES)[number] | "cancelled";
 type PaymentStatus = "unpaid" | "paid";
 
 interface OrderItem {
@@ -28,19 +29,27 @@ interface OrderRow {
   total: number;
   status: Status;
   payment_status: PaymentStatus;
+  payment_reported_at: string | null;
   created_at: string;
 }
 
-function PaymentBadge({ status }: { status: PaymentStatus }) {
-  return (
-    <span className={`pill pill--${status}`}>
-      {status === "paid" ? "Paid" : "Unpaid"}
-    </span>
-  );
+// "Reported" is the customer saying they paid; only the store (dashboard/CLI)
+// can turn that into "Paid".
+function PaymentBadge({ order }: { order: OrderRow }) {
+  if (order.status === "cancelled") {
+    return <span className="pill pill--neutral">Cancelled</span>;
+  }
+  if (order.payment_status === "paid") {
+    return <span className="pill pill--paid">Paid</span>;
+  }
+  if (order.payment_reported_at) {
+    return <span className="pill pill--neutral">Payment reported</span>;
+  }
+  return <span className="pill pill--unpaid">Unpaid</span>;
 }
 
 function StatusTracker({ status }: { status: Status }) {
-  const currentIndex = STATUSES.indexOf(status);
+  const currentIndex = STATUSES.indexOf(status as (typeof STATUSES)[number]);
   return (
     <div className="status-tracker">
       {STATUSES.map((s, i) => (
@@ -179,9 +188,10 @@ export default function ProfilePage() {
       }
       setEmail(data.user.email);
 
+      await expireStaleOrders();
       const { data: orderRows } = await insforge.database
         .from("orders")
-        .select("id, items, total, status, payment_status, created_at")
+        .select("id, items, total, status, payment_status, payment_reported_at, created_at")
         .eq("user_id", data.user.id)
         .order("created_at", { ascending: false });
 
@@ -192,6 +202,10 @@ export default function ProfilePage() {
 
   async function handleSignOut() {
     await insforge.auth.signOut();
+    // Never leave this user's cart behind for the next person on the device.
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    } catch {}
     notifyAuthChanged();
     router.push("/");
   }
@@ -238,14 +252,20 @@ export default function ProfilePage() {
                 <div
                   className="order-history-card__status"
                 >
-                  <PaymentBadge status={order.payment_status} />
+                  <PaymentBadge order={order} />
                   <div className="order-history-card__meta">{money(order.total)}</div>
                 </div>
               </div>
 
-              <StatusTracker status={order.status} />
+              {order.status === "cancelled" ? (
+                <p className="order-history-card__meta" style={{ marginTop: "1rem" }}>
+                  Cancelled — no payment was reported within {ORDER_EXPIRY_HOURS} hours.
+                </p>
+              ) : (
+                <StatusTracker status={order.status} />
+              )}
 
-              {order.payment_status === "unpaid" && (
+              {order.status === "pending" && order.payment_status === "unpaid" && !order.payment_reported_at && (
                 <Link
                   href={`/payment/${order.id}`}
                   className="btn btn--outline btn--sm"

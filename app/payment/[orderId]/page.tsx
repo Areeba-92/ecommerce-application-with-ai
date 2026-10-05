@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { insforge, getCurrentUserOnce } from "@/lib/insforge";
 import { money } from "@/lib/format";
+import { expireStaleOrders, ORDER_EXPIRY_HOURS } from "@/lib/orders";
 
 const PAYPAL_ME_URL = process.env.NEXT_PUBLIC_PAYPAL_ME_URL;
 const AUTO_REDIRECT_DELAY_MS = 2500;
@@ -14,6 +15,7 @@ interface OrderRow {
   total: number;
   status: string;
   payment_status: string;
+  payment_reported_at: string | null;
 }
 
 export default function PaymentPage() {
@@ -32,9 +34,10 @@ export default function PaymentPage() {
         return;
       }
 
+      await expireStaleOrders();
       const { data: orderRow } = await insforge.database
         .from("orders")
-        .select("id, total, status, payment_status")
+        .select("id, total, status, payment_status, payment_reported_at")
         .eq("id", orderId)
         .single();
 
@@ -49,9 +52,16 @@ export default function PaymentPage() {
     });
   }, [orderId, router]);
 
+  const awaitingPayment =
+    order?.status === "pending" &&
+    order.payment_status === "unpaid" &&
+    !order.payment_reported_at;
+
   const payPalUrl =
-    PAYPAL_ME_URL && order
-      ? `${PAYPAL_ME_URL.replace(/\/$/, "")}/${Number(order.total).toFixed(2)}`
+    PAYPAL_ME_URL && order && awaitingPayment
+      ? // Currency is explicit: without it PayPal.me charges in the
+        // recipient account's default currency, not the USD the site shows.
+        `${PAYPAL_ME_URL.replace(/\/$/, "")}/${Number(order.total).toFixed(2)}USD`
       : null;
 
   useEffect(() => {
@@ -103,6 +113,48 @@ export default function PaymentPage() {
     );
   }
 
+  if (order && order.status === "cancelled") {
+    return (
+      <div className="container">
+        <div className="confirmation">
+          <span className="eyebrow">Order Expired</span>
+          <h1 className="section__title">This order was cancelled</h1>
+          <p className="confirmation__order-number">{order.id}</p>
+          <p className="dummy-note" style={{ marginTop: "1rem" }}>
+            No payment was reported within {ORDER_EXPIRY_HOURS} hours, so the
+            order was cancelled. Nothing was charged — please place a new order.
+          </p>
+          <div style={{ marginTop: "2rem" }}>
+            <Link href="/profile" className="btn btn--primary">
+              Go to Profile
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (order && order.payment_reported_at) {
+    return (
+      <div className="container">
+        <div className="confirmation">
+          <span className="eyebrow">Payment Reported</span>
+          <h1 className="section__title">Awaiting verification</h1>
+          <p className="confirmation__order-number">{order.id}</p>
+          <p className="dummy-note" style={{ marginTop: "1rem" }}>
+            You&apos;ve already submitted payment for this order. The store
+            confirms it once the payment has been checked.
+          </p>
+          <div style={{ marginTop: "2rem" }}>
+            <Link href="/profile" className="btn btn--primary">
+              View in Profile
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const returnHref = `/payment/return?orderId=${orderId}`;
 
   return (
@@ -141,8 +193,9 @@ export default function PaymentPage() {
           <>
             <p className="dummy-note" style={{ marginTop: "1rem" }}>
               Demo mode — no PayPal.me handle is configured for this
-              environment. The button below simulates a successful payment;
-              no real charge occurs.
+              environment and no real charge occurs. The button below
+              simulates submitting a payment; the order then shows as
+              &ldquo;payment reported&rdquo; until the store verifies it.
             </p>
             <div style={{ marginTop: "2rem" }}>
               <Link href={returnHref} className="btn btn--primary">

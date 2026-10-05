@@ -21,7 +21,22 @@ export function notifyAuthChanged() {
 // calls onto one in-flight request instead.
 let pendingCurrentUser: ReturnType<typeof insforge.auth.getCurrentUser> | null = null;
 
+// The SDK keeps the session in memory only, so on every page load
+// `getCurrentUser()` calls POST /api/auth/refresh. For a visitor who never
+// signed in that is a guaranteed 401 ("No refresh token provided") logged in the
+// console. The SDK writes `insforge_csrf_token` on sign-in and clears it on
+// sign-out / failed refresh, and refresh is rejected (403) without it — so if
+// the cookie is absent the refresh cannot succeed and we skip it.
+const CSRF_COOKIE = "insforge_csrf_token";
+
+function mayHaveSession() {
+  return document.cookie.split(";").some((c) => c.trim().startsWith(`${CSRF_COOKIE}=`));
+}
+
 export function getCurrentUserOnce() {
+  if (!mayHaveSession()) {
+    return Promise.resolve({ data: { user: null }, error: null });
+  }
   if (!pendingCurrentUser) {
     pendingCurrentUser = insforge.auth.getCurrentUser().finally(() => {
       pendingCurrentUser = null;

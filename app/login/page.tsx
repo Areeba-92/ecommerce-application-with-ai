@@ -2,6 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeNext } from "@/lib/safe-redirect";
 import { insforge, notifyAuthChanged } from "@/lib/insforge";
 
 export default function LoginPage() {
@@ -37,7 +38,7 @@ function LoginForm() {
 
   function goToNext() {
     notifyAuthChanged();
-    router.push(next || "/profile");
+    router.push(safeNext(next));
   }
 
   async function handleSignIn(e: FormEvent) {
@@ -76,8 +77,8 @@ function LoginForm() {
       setSignupError("Enter a valid email address.");
       return;
     }
-    if (signupPassword.length < 6) {
-      setSignupError("Password must be at least 6 characters.");
+    if (signupPassword.length < 8) {
+      setSignupError("Password must be at least 8 characters.");
       return;
     }
 

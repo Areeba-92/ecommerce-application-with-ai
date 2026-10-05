@@ -30,7 +30,11 @@ finishes booting — retry before believing them.
 See `SECURITY_AUDIT.md` for the last full security review. Its CRITICAL finding
 (client-supplied order totals) was **fixed on 2026-09-23**, along with a payment-bypass hole found
 during that work — both are now enforced by the `orders_enforce_integrity` trigger described in
-the Backend section. Remaining audit items are hardening only (security headers, password policy).
+the Backend section. The 2026-10-05 audit (`SECURITY_AUDIT_2026-10-05.md`, status table at the
+top) and its fixes closed the rest of the hardening items, including security headers and the
+password policy. **Still open:** real PayPal payment verification (PayPal Orders API + verified
+webhook — today payment is a manual admin check), and the account-deletion / order-history
+retention decision (deleting an account currently hard-deletes its orders).
 Still get explicit approval before changing checkout/order/payment logic.
 
 ## Environment
@@ -61,6 +65,12 @@ getNewArrivals, getTrending, getRelated, getSubcategories
 lib/store.tsx cart context — localStorage for guests, synced to the `carts`
 table (write-through) for signed-in users
 lib/format.ts money() helper
+lib/orders.ts ORDER_EXPIRY_HOURS + expireStaleOrders() (calls the
+`expire_stale_orders()` RPC) — see "Abandoned orders expire"
+lib/safe-redirect.ts safeNext() — validates login's `?next=` so it can only be an
+internal path (open-redirect guard)
+tests/ `node --test` unit tests (`npm test`); no test framework
+dependency — Node strips the TS types natively
 app/collection/[type]/ cross-category listing for featured | new | trending (anything else →
 404), via getProducts({ collection }). Homepage "View All" and footer
 Shop links point here — never at /men or /women.
@@ -109,12 +119,34 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
     `auth.uid() = user_id`.
   - `orders` — item/price snapshot in `items` jsonb; RLS allows insert/select for
     the owning user (`auth.uid() = user_id`), plus a narrow owner-only UPDATE
-    (column-grant-restricted to `payment_status`/`status`, guarded by a trigger
-    so the only client-side transition possible is
-    `pending`+`unpaid` → `confirmed`+`paid`, exactly once — see
-    `app/payment/`). `status` moves pending → confirmed → shipped → delivered;
-    shipped/delivered transitions happen via the InsForge dashboard/DB, not the
-    app. **Pricing is server-enforced:** a `BEFORE INSERT` trigger
+    column-grant-restricted to `payment_reported_at` **only**.
+    **Payment rule (2026-10-05): the client must NEVER be able to set
+    `payment_status = 'paid'` or `status = 'confirmed'`.** `authenticated` has no
+    UPDATE grant on either column. A signed-in user may only *report* that they
+    paid (`app/payment/return/` sets `payment_reported_at`); the
+    `orders_guard_payment_update` trigger allows that once, on a
+    `pending`/`unpaid` order, with a server-set timestamp, and rejects any change
+    to `payment_status`/`status`. The order stays `pending`/`unpaid` (UI:
+    "Payment reported — awaiting verification") until an admin verifies the
+    payment and marks it `paid`/`confirmed` via the InsForge dashboard or
+    `db query` (runs as `project_admin`). Never re-add a client path to "paid" —
+    see `SECURITY_AUDIT.md` → "Payment status is admin-only".
+    `status` moves pending → confirmed → shipped → delivered; every one of those
+    transitions happens via the InsForge dashboard/DB, not the
+    app. **Abandoned orders expire:** a `pending`/`unpaid` order with no payment
+    report is `cancelled` after 24h. There is no cron — the guard trigger refuses
+    a report on an order older than 24h (the actual rule), and
+    `expire_stale_orders()` (SECURITY DEFINER, scoped to `auth.uid()`) flips the
+    caller's own stale orders to `cancelled`; `lib/orders.ts` calls it when
+    `/profile` or `/payment/[orderId]` loads. Reported orders never expire — they
+    wait for an admin. The 24h lives in the migration and in
+    `ORDER_EXPIRY_HOURS` (`lib/orders.ts`); change both together.
+    **Contact/address are server-validated:** a separate `BEFORE INSERT` trigger
+    (`orders_validate_contact`) accepts only `contact {name,email,phone}` and
+    `shipping_address {address,city,zip,country}`, all required non-empty
+    strings with max lengths, a valid email and phone, no `<`/`>`/control
+    characters. Adding a checkout field means adding it there too, or every
+    order is rejected. **Pricing is server-enforced:** a `BEFORE INSERT` trigger
     (`orders_enforce_integrity`) discards whatever the client sends for money and
     recomputes `items[].price`, `subtotal`, `shipping` and `total` from the live
     `products` table, and forces every client-placed order to start
@@ -127,8 +159,11 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
     adding it there will silently drop it.
     Payment is PayPal (PayPal.me link, `payment_status`/`payment_method`
     columns) — see `app/checkout/`, `app/payment/[orderId]/`,
-    `app/payment/return/`. PayPal.me has no server callback, so payment
-    confirmation is trust-based by design, not a bug.
+    `app/payment/return/`. **This is a demo / manual-verification flow, NOT
+    verified automatic payment processing:** PayPal.me has no server callback, so
+    a customer's "I've paid" is only a report and confirmation is a manual admin
+    step. The link amount is suffixed `USD` so PayPal.me cannot fall back to the
+    recipient's default currency.
 - **Auth**: email + password via `insforge.auth`. Email verification is ON
   (`require_email_verification = true`, code-based) — signup shows a 6-digit
   code step before the account is usable. No *custom* SMTP provider is
@@ -166,9 +201,17 @@ infrastructure (schema, RLS, buckets) is managed via the CLI, not app code.
   user has no non-admin API. Keep it self-scoped (identity from the caller's
   token only) and don't add other uses of `INSFORGE_API_KEY` without asking.
 - **Cross-component auth state**: no context provider was added; components that
-  need to know sign-in state call `insforge.auth.getCurrentUser()` directly and
-  listen for `lib/insforge.ts`'s `AUTH_CHANGED_EVENT` (dispatched by
-  `notifyAuthChanged()` after sign-in/out) to re-check.
+  need to know sign-in state call `getCurrentUserOnce()` (`lib/insforge.ts`, a
+  deduped wrapper around `insforge.auth.getCurrentUser()`) and listen for
+  `AUTH_CHANGED_EVENT` (dispatched by `notifyAuthChanged()` after sign-in/out) to
+  re-check.
+- **`getCurrentUserOnce()` depends on an SDK internal:** it skips the session
+  refresh (which would 401 for every signed-out visitor) unless the
+  `insforge_csrf_token` cookie exists — the cookie `@insforge/sdk` 1.5.x sets on
+  sign-in and clears on sign-out. **After upgrading `@insforge/sdk`, verify the
+  cookie name and session behaviour** (sign in, reload a page, confirm you are
+  still signed in). If the SDK renames the cookie, every signed-in user will
+  silently appear signed out.
 
 ## Product images
 
@@ -236,6 +279,11 @@ block at the top of `app/globals.css` — change tokens, not call sites.
   the documented `PRODUCTS` line) rather than rebuilding.
 - Keep `BASE_PRODUCTS` (demo data) in place even after switching to real products — just
   disconnect it via the documented line in `lib/data.ts`, don't delete it.
+- **CSP:** `next.config.ts` sends a Content-Security-Policy. Introducing any new
+  external resource — image host, font, API/fetch origin, script, media, iframe —
+  means adding its origin to the matching directive there (`img-src`, `font-src`,
+  `connect-src`, …), or the browser silently blocks it. Check the console for CSP
+  violations after such a change.
 - Never hardcode secrets/API keys. Env vars go in `.env.local` (must stay git-ignored) and use the
   `NEXT_PUBLIC_` prefix only for values the client legitimately needs.
 - Any task that touches money/payments/orders: keep amounts and status transitions server-verified
@@ -244,6 +292,7 @@ block at the top of `app/globals.css` — change tokens, not call sites.
 ## Verification checklist (run before considering a task done)
 
 - `npm run build` succeeds with no type errors.
+- `npm test` passes.
 - Start the production server (`npm run start`) on a free port, curl/verify key routes return 200,
   then stop the server — don't leave background processes running.
 - No console errors on the pages touched.
@@ -258,6 +307,7 @@ block at the top of `app/globals.css` — change tokens, not call sites.
 - `npm run build` — production build (must pass with zero type errors before calling anything done)
 - `npm run start` — run the production build
 - `npm run import-listings` — run the CSV → catalogue import pipeline
+- `npm test` — unit tests in `tests/` (Node's built-in runner; needs Node ≥ 22.18)
 
 ## Dependency isolation
 

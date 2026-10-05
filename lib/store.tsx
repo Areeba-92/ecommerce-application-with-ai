@@ -110,14 +110,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // effect below, which only runs post-hydration.
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  // Signed-in carts live only in the `carts` table — mirroring them into
+  // localStorage would leave them on the device for the next (guest) user.
+  const [signedIn, setSignedIn] = useState(false);
 
   const loadForCurrentUser = useCallback(async () => {
     const { data } = await getCurrentUserOnce();
     const userId = data.user?.id ?? null;
 
     if (userId) {
-      setItems(await loadCartFromDb(userId));
+      const dbItems = await loadCartFromDb(userId);
+      setSignedIn(true);
+      setItems(dbItems);
     } else {
+      setSignedIn(false);
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         setItems(raw ? JSON.parse(raw) : []);
@@ -128,6 +134,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // False positive: loadForCurrentUser is async and only sets state after an
+    // await, so nothing here updates state synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadForCurrentUser().finally(() => setHydrated(true));
 
     window.addEventListener(AUTH_CHANGED_EVENT, loadForCurrentUser);
@@ -135,9 +144,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [loadForCurrentUser]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items, hydrated]);
+    if (!hydrated || signedIn) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch {}
+  }, [items, hydrated, signedIn]);
 
   const add = useCallback((item: Omit<CartItem, "qty">, qty = 1) => {
     setItems((prev) => {

@@ -34,6 +34,9 @@ export default function ThemeToggle() {
         ? "dark"
         : "light";
 
+    // Intentional: the theme is unknowable during SSR, so it is read once after
+    // mount (reading it during render would cause a hydration mismatch).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(initial);
     if (stored === "light" || stored === "dark") {
       document.documentElement.dataset.theme = stored;

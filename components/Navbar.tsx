@@ -54,10 +54,8 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (!query.trim()) {
-      setSuggestions([]);
-      return;
-    }
+    // Clearing on an empty query happens in the input's onChange.
+    if (!query.trim()) return;
     let active = true;
     const id = setTimeout(() => {
       getProducts({ query, limit: 5 }).then((results) => {
@@ -192,7 +190,10 @@ export default function Navbar() {
             className="search-overlay__input"
             placeholder="Search products…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!e.target.value.trim()) setSuggestions([]);
+            }}
           />
           <button type="submit" aria-label="Submit search">
             <SearchIcon />
